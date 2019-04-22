@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -32,6 +32,7 @@
 #define GDMONOMARSHAL_H
 
 #include "core/variant.h"
+
 #include "gd_mono.h"
 #include "gd_mono_utils.h"
 
@@ -56,7 +57,25 @@ T unbox(MonoObject *p_obj) {
 #define BOX_PTR(x) mono_value_box(mono_domain_get(), CACHED_CLASS_RAW(IntPtr), x)
 #define BOX_ENUM(m_enum_class, x) mono_value_box(mono_domain_get(), m_enum_class, &x)
 
-Variant::Type managed_to_variant_type(const ManagedType &p_type);
+// FIXME: Made this struct in a hurry. It could be done differently.
+struct ExportInfo {
+	struct ArrayInfo {
+		Variant::Type element_type;
+
+		ArrayInfo() :
+				element_type(Variant::NIL) {}
+	} array;
+	struct DictionaryInfo {
+		Variant::Type key_type;
+		Variant::Type value_type;
+
+		DictionaryInfo() :
+				key_type(Variant::NIL),
+				value_type(Variant::NIL) {}
+	} dictionary;
+};
+
+Variant::Type managed_to_variant_type(const ManagedType &p_type, ExportInfo *r_export_info = NULL);
 
 // String
 
@@ -206,9 +225,10 @@ enum {
 
 // In the future we may force this if we want to ref return these structs
 #ifdef GD_MONO_FORCE_INTEROP_STRUCT_COPY
-// Sometimes clang-format can be an ass
-GD_STATIC_ASSERT(MATCHES_Vector2 &&MATCHES_Rect2 &&MATCHES_Transform2D &&MATCHES_Vector3 &&
-				MATCHES_Basis &&MATCHES_Quat &&MATCHES_Transform &&MATCHES_AABB &&MATCHES_Color &&MATCHES_Plane);
+/* clang-format off */
+GD_STATIC_ASSERT(MATCHES_Vector2 && MATCHES_Rect2 && MATCHES_Transform2D && MATCHES_Vector3 &&
+				MATCHES_Basis && MATCHES_Quat && MATCHES_Transform && MATCHES_AABB && MATCHES_Color &&MATCHES_Plane);
+/* clang-format on */
 #endif
 
 } // namespace InteropLayout

@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -31,12 +31,11 @@
 #ifndef VISUAL_SERVER_RASTER_H
 #define VISUAL_SERVER_RASTER_H
 
-#include "core/allocators.h"
 #include "core/math/octree.h"
 #include "servers/visual/rasterizer.h"
 #include "servers/visual_server.h"
 #include "visual_server_canvas.h"
-#include "visual_server_global.h"
+#include "visual_server_globals.h"
 #include "visual_server_scene.h"
 #include "visual_server_viewport.h"
 /**
@@ -297,6 +296,7 @@ public:
 	BIND3(skeleton_bone_set_transform_2d, RID, int, const Transform2D &)
 	BIND2RC(Transform2D, skeleton_bone_get_transform_2d, RID, int)
 	BIND2(skeleton_set_base_transform_2d, RID, const Transform2D &)
+	BIND3(skeleton_set_world_transform, RID, bool, const Transform &)
 
 	/* Light API */
 
@@ -569,6 +569,8 @@ public:
 	BIND0R(RID, canvas_create)
 	BIND3(canvas_set_item_mirroring, RID, RID, const Point2 &)
 	BIND2(canvas_set_modulate, RID, const Color &)
+	BIND3(canvas_set_parent, RID, RID, float)
+	BIND1(canvas_set_disable_scale, bool)
 
 	BIND0R(RID, canvas_item_create)
 	BIND2(canvas_item_set_parent, RID, RID)
@@ -598,7 +600,7 @@ public:
 	BIND7(canvas_item_add_primitive, RID, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, RID, float, RID)
 	BIND7(canvas_item_add_polygon, RID, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, RID, RID, bool)
 	BIND10(canvas_item_add_triangle_array, RID, const Vector<int> &, const Vector<Point2> &, const Vector<Color> &, const Vector<Point2> &, const Vector<int> &, const Vector<float> &, RID, int, RID)
-	BIND4(canvas_item_add_mesh, RID, const RID &, RID, RID)
+	BIND6(canvas_item_add_mesh, RID, const RID &, const Transform2D &, const Color &, RID, RID)
 	BIND4(canvas_item_add_multimesh, RID, RID, RID, RID)
 	BIND4(canvas_item_add_particles, RID, RID, RID, RID)
 	BIND2(canvas_item_add_set_transform, RID, const Transform2D &)

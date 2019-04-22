@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -301,7 +301,7 @@ void ScriptEditor::_goto_script_line2(int p_line) {
 void ScriptEditor::_goto_script_line(REF p_script, int p_line) {
 
 	Ref<Script> script = Object::cast_to<Script>(*p_script);
-	if (!script.is_null() && script->has_source_code()) {
+	if (script.is_valid() && (script->has_source_code() || script->get_path().is_resource_file())) {
 		if (edit(p_script, p_line, 0)) {
 			editor->push_item(p_script.ptr());
 
@@ -849,8 +849,7 @@ void ScriptEditor::_file_dialog_action(String p_file) {
 			}
 			file->close();
 			memdelete(file);
-
-			// fallthrough to open the file.
+			FALLTHROUGH;
 		}
 		case FILE_OPEN: {
 
@@ -978,6 +977,10 @@ void ScriptEditor::_menu_option(int p_option) {
 		case SEARCH_WEBSITE: {
 
 			OS::get_singleton()->shell_open("https://docs.godotengine.org/");
+		} break;
+		case REQUEST_DOCS: {
+
+			OS::get_singleton()->shell_open("https://github.com/godotengine/godot-docs/issues/new");
 		} break;
 
 		case WINDOW_NEXT: {
@@ -1308,6 +1311,7 @@ void ScriptEditor::_notification(int p_what) {
 			EditorSettings::get_singleton()->connect("settings_changed", this, "_editor_settings_changed");
 			help_search->set_icon(get_icon("HelpSearch", "EditorIcons"));
 			site_search->set_icon(get_icon("Instance", "EditorIcons"));
+			request_docs->set_icon(get_icon("Issue", "EditorIcons"));
 
 			script_forward->set_icon(get_icon("Forward", "EditorIcons"));
 			script_back->set_icon(get_icon("Back", "EditorIcons"));
@@ -1731,7 +1735,7 @@ void ScriptEditor::_update_script_names() {
 
 			String name = eh->get_class();
 			Ref<Texture> icon = get_icon("Help", "EditorIcons");
-			String tooltip = name + TTR(" Class Reference");
+			String tooltip = vformat(TTR("%s Class Reference"), name);
 
 			_ScriptEditorItemData sd;
 			sd.icon = icon;
@@ -1795,6 +1799,16 @@ void ScriptEditor::_update_script_names() {
 	_update_members_overview_visibility();
 	_update_help_overview_visibility();
 	_update_script_colors();
+}
+
+void ScriptEditor::_update_script_connections() {
+	for (int i = 0; i < tab_container->get_child_count(); i++) {
+		ScriptTextEditor *ste = Object::cast_to<ScriptTextEditor>(tab_container->get_child(i));
+		if (!ste) {
+			continue;
+		}
+		ste->_update_connected_methods();
+	}
 }
 
 Ref<TextFile> ScriptEditor::_load_text_file(const String &p_path, Error *r_error) {
@@ -1951,8 +1965,9 @@ bool ScriptEditor::edit(const RES &p_resource, int p_line, int p_col, bool p_gra
 				if (is_visible_in_tree())
 					se->ensure_focus();
 
-				if (p_line >= 0)
+				if (p_line > 0) {
 					se->goto_line(p_line - 1);
+				}
 			}
 			return true;
 		}
@@ -2012,8 +2027,9 @@ bool ScriptEditor::edit(const RES &p_resource, int p_line, int p_col, bool p_gra
 	_test_script_times_on_disk(p_resource);
 	_update_modified_scripts_for_external_editor(p_resource);
 
-	if (p_line >= 0)
+	if (p_line > 0) {
 		se->goto_line(p_line - 1);
+	}
 
 	notify_script_changed(p_resource);
 	_add_recent_script(p_resource->get_path());
@@ -2197,6 +2213,7 @@ void ScriptEditor::_tree_changed() {
 
 	waiting_update_names = true;
 	call_deferred("_update_script_names");
+	call_deferred("_update_script_connections");
 }
 
 void ScriptEditor::_script_split_dragged(float) {
@@ -2205,6 +2222,9 @@ void ScriptEditor::_script_split_dragged(float) {
 }
 
 Variant ScriptEditor::get_drag_data_fw(const Point2 &p_point, Control *p_from) {
+
+	if (tab_container->get_child_count() == 0)
+		return Variant();
 
 	Node *cur_node = tab_container->get_child(tab_container->get_current_tab());
 
@@ -2473,22 +2493,33 @@ void ScriptEditor::set_window_layout(Ref<ConfigFile> p_layout) {
 	for (int i = 0; i < scripts.size(); i++) {
 
 		String path = scripts[i];
+
+		Dictionary script_info = scripts[i];
+		if (!script_info.empty()) {
+			path = script_info["path"];
+		}
+
 		if (!FileAccess::exists(path))
 			continue;
 
 		if (extensions.find(path.get_extension())) {
 			Ref<Script> scr = ResourceLoader::load(path);
-			if (scr.is_valid()) {
-				edit(scr);
+			if (!scr.is_valid()) {
 				continue;
 			}
+			edit(scr);
+		} else {
+			Error error;
+			Ref<TextFile> text_file = _load_text_file(path, &error);
+			if (error != OK || !text_file.is_valid()) {
+				continue;
+			}
+			edit(text_file);
 		}
 
-		Error error;
-		Ref<TextFile> text_file = _load_text_file(path, &error);
-		if (error == OK && text_file.is_valid()) {
-			edit(text_file);
-			continue;
+		if (!script_info.empty()) {
+			ScriptEditorBase *se = Object::cast_to<ScriptEditorBase>(tab_container->get_child(i));
+			se->set_edit_state(script_info["state"]);
 		}
 	}
 
@@ -2528,7 +2559,11 @@ void ScriptEditor::get_window_layout(Ref<ConfigFile> p_layout) {
 			if (!path.is_resource_file())
 				continue;
 
-			scripts.push_back(path);
+			Dictionary script_info;
+			script_info["path"] = path;
+			script_info["state"] = se->get_edit_state();
+
+			scripts.push_back(script_info);
 		}
 
 		EditorHelp *eh = Object::cast_to<EditorHelp>(tab_container->get_child(i));
@@ -2800,7 +2835,7 @@ void ScriptEditor::_start_find_in_files(bool with_replace) {
 
 	f->set_search_text(find_in_files_dialog->get_search_text());
 	f->set_match_case(find_in_files_dialog->is_match_case());
-	f->set_whole_words(find_in_files_dialog->is_match_case());
+	f->set_whole_words(find_in_files_dialog->is_whole_words());
 	f->set_folder(find_in_files_dialog->get_folder());
 	f->set_filter(find_in_files_dialog->get_filter());
 
@@ -2847,6 +2882,7 @@ void ScriptEditor::_bind_methods() {
 	ClassDB::bind_method("_autosave_scripts", &ScriptEditor::_autosave_scripts);
 	ClassDB::bind_method("_editor_settings_changed", &ScriptEditor::_editor_settings_changed);
 	ClassDB::bind_method("_update_script_names", &ScriptEditor::_update_script_names);
+	ClassDB::bind_method("_update_script_connections", &ScriptEditor::_update_script_connections);
 	ClassDB::bind_method("_tree_changed", &ScriptEditor::_tree_changed);
 	ClassDB::bind_method("_members_overview_selected", &ScriptEditor::_members_overview_selected);
 	ClassDB::bind_method("_help_overview_selected", &ScriptEditor::_help_overview_selected);
@@ -3074,7 +3110,13 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	site_search->set_text(TTR("Online Docs"));
 	site_search->connect("pressed", this, "_menu_option", varray(SEARCH_WEBSITE));
 	menu_hb->add_child(site_search);
-	site_search->set_tooltip(TTR("Open Godot online documentation"));
+	site_search->set_tooltip(TTR("Open Godot online documentation."));
+
+	request_docs = memnew(ToolButton);
+	request_docs->set_text(TTR("Request Docs"));
+	request_docs->connect("pressed", this, "_menu_option", varray(REQUEST_DOCS));
+	menu_hb->add_child(request_docs);
+	request_docs->set_tooltip(TTR("Help improve the Godot documentation by giving feedback."));
 
 	help_search = memnew(ToolButton);
 	help_search->set_text(TTR("Search Help"));

@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -132,7 +132,7 @@ bool _ResourceLoader::exists(const String &p_path, const String &p_type_hint) {
 void _ResourceLoader::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("load_interactive", "path", "type_hint"), &_ResourceLoader::load_interactive, DEFVAL(""));
-	ClassDB::bind_method(D_METHOD("load", "path", "type_hint", "p_no_cache"), &_ResourceLoader::load, DEFVAL(""), DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("load", "path", "type_hint", "no_cache"), &_ResourceLoader::load, DEFVAL(""), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_recognized_extensions_for_type", "type"), &_ResourceLoader::get_recognized_extensions_for_type);
 	ClassDB::bind_method(D_METHOD("set_abort_on_missing_resources", "abort"), &_ResourceLoader::set_abort_on_missing_resources);
 	ClassDB::bind_method(D_METHOD("get_dependencies", "path"), &_ResourceLoader::get_dependencies);
@@ -148,7 +148,7 @@ _ResourceLoader::_ResourceLoader() {
 	singleton = this;
 }
 
-Error _ResourceSaver::save(const String &p_path, const RES &p_resource, uint32_t p_flags) {
+Error _ResourceSaver::save(const String &p_path, const RES &p_resource, SaverFlags p_flags) {
 
 	ERR_FAIL_COND_V(p_resource.is_null(), ERR_INVALID_PARAMETER);
 	return ResourceSaver::save(p_path, p_resource, p_flags);
@@ -225,8 +225,12 @@ int _OS::get_video_driver_count() const {
 	return OS::get_singleton()->get_video_driver_count();
 }
 
-String _OS::get_video_driver_name(int p_driver) const {
-	return OS::get_singleton()->get_video_driver_name(p_driver);
+String _OS::get_video_driver_name(VideoDriver p_driver) const {
+	return OS::get_singleton()->get_video_driver_name((int)p_driver);
+}
+
+_OS::VideoDriver _OS::get_current_video_driver() const {
+	return (VideoDriver)OS::get_singleton()->get_current_video_driver();
 }
 
 int _OS::get_audio_driver_count() const {
@@ -592,17 +596,17 @@ struct Time {
 };
 */
 
-int _OS::get_static_memory_usage() const {
+uint64_t _OS::get_static_memory_usage() const {
 
 	return OS::get_singleton()->get_static_memory_usage();
 }
 
-int _OS::get_static_memory_peak_usage() const {
+uint64_t _OS::get_static_memory_peak_usage() const {
 
 	return OS::get_singleton()->get_static_memory_peak_usage();
 }
 
-int _OS::get_dynamic_memory_usage() const {
+uint64_t _OS::get_dynamic_memory_usage() const {
 
 	return OS::get_singleton()->get_dynamic_memory_usage();
 }
@@ -788,7 +792,7 @@ Dictionary _OS::get_datetime_from_unix_time(int64_t unix_time_val) const {
 
 	size_t imonth = 0;
 
-	while (dayno >= MONTH_DAYS_TABLE[LEAPYEAR(year)][imonth]) {
+	while ((unsigned long)dayno >= MONTH_DAYS_TABLE[LEAPYEAR(year)][imonth]) {
 		dayno -= MONTH_DAYS_TABLE[LEAPYEAR(year)][imonth];
 		imonth++;
 	}
@@ -825,6 +829,10 @@ uint64_t _OS::get_unix_time() const {
 
 uint64_t _OS::get_system_time_secs() const {
 	return OS::get_singleton()->get_system_time_secs();
+}
+
+uint64_t _OS::get_system_time_msecs() const {
+	return OS::get_singleton()->get_system_time_msecs();
 }
 
 void _OS::delay_usec(uint32_t p_usec) const {
@@ -1085,6 +1093,11 @@ void _OS::alert(const String &p_alert, const String &p_title) {
 	OS::get_singleton()->alert(p_alert, p_title);
 }
 
+bool _OS::request_permission(const String &p_name) {
+
+	return OS::get_singleton()->request_permission(p_name);
+}
+
 _OS *_OS::singleton = NULL;
 
 void _OS::_bind_methods() {
@@ -1104,6 +1117,8 @@ void _OS::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_video_driver_count"), &_OS::get_video_driver_count);
 	ClassDB::bind_method(D_METHOD("get_video_driver_name", "driver"), &_OS::get_video_driver_name);
+	ClassDB::bind_method(D_METHOD("get_current_video_driver"), &_OS::get_current_video_driver);
+
 	ClassDB::bind_method(D_METHOD("get_audio_driver_count"), &_OS::get_audio_driver_count);
 	ClassDB::bind_method(D_METHOD("get_audio_driver_name", "driver"), &_OS::get_audio_driver_name);
 	ClassDB::bind_method(D_METHOD("get_connected_midi_inputs"), &_OS::get_connected_midi_inputs);
@@ -1182,6 +1197,7 @@ void _OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_datetime_from_unix_time", "unix_time_val"), &_OS::get_datetime_from_unix_time);
 	ClassDB::bind_method(D_METHOD("get_unix_time_from_datetime", "datetime"), &_OS::get_unix_time_from_datetime);
 	ClassDB::bind_method(D_METHOD("get_system_time_secs"), &_OS::get_system_time_secs);
+	ClassDB::bind_method(D_METHOD("get_system_time_msecs"), &_OS::get_system_time_msecs);
 
 	ClassDB::bind_method(D_METHOD("set_icon", "icon"), &_OS::set_icon);
 
@@ -1254,6 +1270,8 @@ void _OS::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_power_seconds_left"), &_OS::get_power_seconds_left);
 	ClassDB::bind_method(D_METHOD("get_power_percent_left"), &_OS::get_power_percent_left);
 
+	ClassDB::bind_method(D_METHOD("request_permission", "name"), &_OS::request_permission);
+
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "clipboard"), "set_clipboard", "get_clipboard");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "current_screen"), "set_current_screen", "get_current_screen");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "exit_code"), "set_exit_code", "get_exit_code");
@@ -1270,6 +1288,9 @@ void _OS::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "window_resizable"), "set_window_resizable", "is_window_resizable");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "window_position"), "set_window_position", "get_window_position");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "window_size"), "set_window_size", "get_window_size");
+
+	BIND_ENUM_CONSTANT(VIDEO_DRIVER_GLES2);
+	BIND_ENUM_CONSTANT(VIDEO_DRIVER_GLES3);
 
 	BIND_ENUM_CONSTANT(DAY_SUNDAY);
 	BIND_ENUM_CONSTANT(DAY_MONDAY);
@@ -1558,7 +1579,7 @@ _Geometry::_Geometry() {
 
 ///////////////////////// FILE
 
-Error _File::open_encrypted(const String &p_path, int p_mode_flags, const Vector<uint8_t> &p_key) {
+Error _File::open_encrypted(const String &p_path, ModeFlags p_mode_flags, const Vector<uint8_t> &p_key) {
 
 	Error err = open(p_path, p_mode_flags);
 	if (err)
@@ -1575,7 +1596,7 @@ Error _File::open_encrypted(const String &p_path, int p_mode_flags, const Vector
 	return OK;
 }
 
-Error _File::open_encrypted_pass(const String &p_path, int p_mode_flags, const String &p_pass) {
+Error _File::open_encrypted_pass(const String &p_path, ModeFlags p_mode_flags, const String &p_pass) {
 
 	Error err = open(p_path, p_mode_flags);
 	if (err)
@@ -1593,7 +1614,7 @@ Error _File::open_encrypted_pass(const String &p_path, int p_mode_flags, const S
 	return OK;
 }
 
-Error _File::open_compressed(const String &p_path, int p_mode_flags, int p_compress_mode) {
+Error _File::open_compressed(const String &p_path, ModeFlags p_mode_flags, CompressionMode p_compress_mode) {
 
 	FileAccessCompressed *fac = memnew(FileAccessCompressed);
 
@@ -1610,7 +1631,7 @@ Error _File::open_compressed(const String &p_path, int p_mode_flags, int p_compr
 	return OK;
 }
 
-Error _File::open(const String &p_path, int p_mode_flags) {
+Error _File::open(const String &p_path, ModeFlags p_mode_flags) {
 
 	close();
 	Error err;
@@ -1887,18 +1908,18 @@ bool _File::file_exists(const String &p_name) const {
 	return FileAccess::exists(p_name);
 }
 
-void _File::store_var(const Variant &p_var) {
+void _File::store_var(const Variant &p_var, bool p_full_objects) {
 
 	ERR_FAIL_COND(!f);
 	int len;
-	Error err = encode_variant(p_var, NULL, len);
+	Error err = encode_variant(p_var, NULL, len, p_full_objects);
 	ERR_FAIL_COND(err != OK);
 
 	PoolVector<uint8_t> buff;
 	buff.resize(len);
 	PoolVector<uint8_t>::Write w = buff.write();
 
-	err = encode_variant(p_var, &w[0], len);
+	err = encode_variant(p_var, &w[0], len, p_full_objects);
 	ERR_FAIL_COND(err != OK);
 	w = PoolVector<uint8_t>::Write();
 
@@ -1906,7 +1927,7 @@ void _File::store_var(const Variant &p_var) {
 	store_buffer(buff);
 }
 
-Variant _File::get_var() const {
+Variant _File::get_var(bool p_allow_objects) const {
 
 	ERR_FAIL_COND_V(!f, Variant());
 	uint32_t len = get_32();
@@ -1916,7 +1937,7 @@ Variant _File::get_var() const {
 	PoolVector<uint8_t>::Read r = buff.read();
 
 	Variant v;
-	Error err = decode_variant(v, &r[0], len);
+	Error err = decode_variant(v, &r[0], len, NULL, p_allow_objects);
 	ERR_FAIL_COND_V(err != OK, Variant());
 
 	return v;
@@ -1959,7 +1980,7 @@ void _File::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_endian_swap"), &_File::get_endian_swap);
 	ClassDB::bind_method(D_METHOD("set_endian_swap", "enable"), &_File::set_endian_swap);
 	ClassDB::bind_method(D_METHOD("get_error"), &_File::get_error);
-	ClassDB::bind_method(D_METHOD("get_var"), &_File::get_var);
+	ClassDB::bind_method(D_METHOD("get_var", "allow_objects"), &_File::get_var, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("store_8", "value"), &_File::store_8);
 	ClassDB::bind_method(D_METHOD("store_16", "value"), &_File::store_16);
@@ -1972,7 +1993,7 @@ void _File::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("store_line", "line"), &_File::store_line);
 	ClassDB::bind_method(D_METHOD("store_csv_line", "values", "delim"), &_File::store_csv_line, DEFVAL(","));
 	ClassDB::bind_method(D_METHOD("store_string", "string"), &_File::store_string);
-	ClassDB::bind_method(D_METHOD("store_var", "value"), &_File::store_var);
+	ClassDB::bind_method(D_METHOD("store_var", "value", "full_objects"), &_File::store_var, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("store_pascal_string", "string"), &_File::store_pascal_string);
 	ClassDB::bind_method(D_METHOD("get_pascal_string"), &_File::get_pascal_string);
@@ -2202,17 +2223,17 @@ _Marshalls *_Marshalls::get_singleton() {
 	return singleton;
 }
 
-String _Marshalls::variant_to_base64(const Variant &p_var) {
+String _Marshalls::variant_to_base64(const Variant &p_var, bool p_full_objects) {
 
 	int len;
-	Error err = encode_variant(p_var, NULL, len);
+	Error err = encode_variant(p_var, NULL, len, p_full_objects);
 	ERR_FAIL_COND_V(err != OK, "");
 
 	PoolVector<uint8_t> buff;
 	buff.resize(len);
 	PoolVector<uint8_t>::Write w = buff.write();
 
-	err = encode_variant(p_var, &w[0], len);
+	err = encode_variant(p_var, &w[0], len, p_full_objects);
 	ERR_FAIL_COND_V(err != OK, "");
 
 	int b64len = len / 3 * 4 + 4 + 1;
@@ -2228,7 +2249,7 @@ String _Marshalls::variant_to_base64(const Variant &p_var) {
 	return ret;
 };
 
-Variant _Marshalls::base64_to_variant(const String &p_str) {
+Variant _Marshalls::base64_to_variant(const String &p_str, bool p_allow_objects) {
 
 	int strlen = p_str.length();
 	CharString cstr = p_str.ascii();
@@ -2240,7 +2261,7 @@ Variant _Marshalls::base64_to_variant(const String &p_str) {
 	int len = base64_decode((char *)(&w[0]), (char *)cstr.get_data(), strlen);
 
 	Variant v;
-	Error err = decode_variant(v, &w[0], len);
+	Error err = decode_variant(v, &w[0], len, NULL, p_allow_objects);
 	ERR_FAIL_COND_V(err != OK, Variant());
 
 	return v;
@@ -2319,8 +2340,8 @@ String _Marshalls::base64_to_utf8(const String &p_str) {
 
 void _Marshalls::_bind_methods() {
 
-	ClassDB::bind_method(D_METHOD("variant_to_base64", "variant"), &_Marshalls::variant_to_base64);
-	ClassDB::bind_method(D_METHOD("base64_to_variant", "base64_str"), &_Marshalls::base64_to_variant);
+	ClassDB::bind_method(D_METHOD("variant_to_base64", "variant", "full_objects"), &_Marshalls::variant_to_base64, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("base64_to_variant", "base64_str", "allow_objects"), &_Marshalls::base64_to_variant, DEFVAL(false));
 
 	ClassDB::bind_method(D_METHOD("raw_to_base64", "array"), &_Marshalls::raw_to_base64);
 	ClassDB::bind_method(D_METHOD("base64_to_raw", "base64_str"), &_Marshalls::base64_to_raw);
@@ -2418,13 +2439,14 @@ void _Thread::_start_func(void *ud) {
 			} break;
 			case Variant::CallError::CALL_ERROR_TOO_FEW_ARGUMENTS: {
 
-				reason = "Too Many Arguments";
+				reason = "Too Few Arguments";
 			} break;
 			case Variant::CallError::CALL_ERROR_INVALID_METHOD: {
 
 				reason = "Method Not Found";
 			} break;
-			default: {}
+			default: {
+			}
 		}
 
 		ERR_EXPLAIN("Could not call function '" + t->target_method.operator String() + "'' starting thread ID: " + t->get_id() + " Reason: " + reason);
@@ -2432,12 +2454,12 @@ void _Thread::_start_func(void *ud) {
 	}
 }
 
-Error _Thread::start(Object *p_instance, const StringName &p_method, const Variant &p_userdata, int p_priority) {
+Error _Thread::start(Object *p_instance, const StringName &p_method, const Variant &p_userdata, Priority p_priority) {
 
 	ERR_FAIL_COND_V(active, ERR_ALREADY_IN_USE);
 	ERR_FAIL_COND_V(!p_instance, ERR_INVALID_PARAMETER);
 	ERR_FAIL_COND_V(p_method == StringName(), ERR_INVALID_PARAMETER);
-	ERR_FAIL_INDEX_V(p_priority, 3, ERR_INVALID_PARAMETER);
+	ERR_FAIL_INDEX_V(p_priority, PRIORITY_MAX, ERR_INVALID_PARAMETER);
 
 	ret = Variant();
 	target_method = p_method;

@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -100,7 +100,7 @@ Variant SignalAwaiterHandle::_signal_callback(const Variant **p_args, int p_argc
 
 	MonoException *exc = NULL;
 	GD_MONO_BEGIN_RUNTIME_INVOKE;
-	invoke_method_thunk(CACHED_METHOD_THUNK(SignalAwaiter, SignalCallback), get_target(), signal_args, (MonoObject **)&exc);
+	invoke_method_thunk(CACHED_METHOD_THUNK(SignalAwaiter, SignalCallback), get_target(), signal_args, &exc);
 	GD_MONO_END_RUNTIME_INVOKE;
 
 	if (exc) {
@@ -132,7 +132,7 @@ SignalAwaiterHandle::~SignalAwaiterHandle() {
 		if (awaiter) {
 			MonoException *exc = NULL;
 			GD_MONO_BEGIN_RUNTIME_INVOKE;
-			invoke_method_thunk(CACHED_METHOD_THUNK(SignalAwaiter, FailureCallback), awaiter, (MonoObject **)&exc);
+			invoke_method_thunk(CACHED_METHOD_THUNK(SignalAwaiter, FailureCallback), awaiter, &exc);
 			GD_MONO_END_RUNTIME_INVOKE;
 
 			if (exc) {

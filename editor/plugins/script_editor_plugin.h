@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -157,6 +157,7 @@ class ScriptEditor : public PanelContainer {
 		DEBUG_WITH_EXTERNAL_EDITOR,
 		SEARCH_HELP,
 		SEARCH_WEBSITE,
+		REQUEST_DOCS,
 		HELP_SEARCH_FIND,
 		HELP_SEARCH_FIND_NEXT,
 		WINDOW_MOVE_UP,
@@ -200,6 +201,7 @@ class ScriptEditor : public PanelContainer {
 
 	Button *help_search;
 	Button *site_search;
+	Button *request_docs;
 	EditorHelpSearch *help_search_dialog;
 
 	ItemList *script_list;
@@ -331,6 +333,7 @@ class ScriptEditor : public PanelContainer {
 	void _update_members_overview();
 	void _toggle_members_overview_alpha_sort(bool p_alphabetic_sort);
 	void _update_script_names();
+	void _update_script_connections();
 	bool _sort_list_on_update;
 
 	void _members_overview_selected(int p_idx);

@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -38,6 +38,7 @@
 #include "editor/editor_about.h"
 #include "editor/editor_data.h"
 #include "editor/editor_export.h"
+#include "editor/editor_feature_profile.h"
 #include "editor/editor_folding.h"
 #include "editor/editor_inspector.h"
 #include "editor/editor_log.h"
@@ -84,7 +85,6 @@
 #include "scene/gui/tool_button.h"
 #include "scene/gui/tree.h"
 #include "scene/gui/viewport_container.h"
-
 /**
 	@author Juan Linietsky <reduzio@gmail.com>
 */
@@ -175,6 +175,7 @@ private:
 		SETTINGS_EDITOR_DATA_FOLDER,
 		SETTINGS_EDITOR_CONFIG_FOLDER,
 		SETTINGS_MANAGE_EXPORT_TEMPLATES,
+		SETTINGS_MANAGE_FEATURE_PROFILES,
 		SETTINGS_PICK_MAIN_SCENE,
 		SETTINGS_TOGGLE_FULLSCREEN,
 		SETTINGS_HELP,
@@ -200,7 +201,6 @@ private:
 	Control *theme_base;
 	Control *gui_base;
 	VBoxContainer *main_vbox;
-	PanelContainer *play_button_panel;
 	OptionButton *video_driver;
 
 	ConfirmationDialog *video_restart_dialog;
@@ -295,6 +295,7 @@ private:
 	ProjectSettingsEditor *project_settings;
 	EditorFileDialog *file;
 	ExportTemplateManager *export_template_manager;
+	EditorFeatureProfileManager *feature_profile_manager;
 	EditorFileDialog *file_templates;
 	EditorFileDialog *file_export;
 	EditorFileDialog *file_export_lib;
@@ -443,6 +444,8 @@ private:
 	void _show_messages();
 	void _vp_resized();
 
+	int _save_external_resources();
+
 	bool _validate_scene_recursive(const String &p_filename, Node *p_node);
 	void _save_scene(String p_file, int idx = -1);
 	void _save_all_scenes();
@@ -451,7 +454,6 @@ private:
 
 	void _instance_request(const Vector<String> &p_files);
 
-	void _hide_top_editors();
 	void _display_top_editors(bool p_display);
 	void _set_top_editors(Vector<EditorPlugin *> p_editor_plugins_over);
 	void _set_editing_top_editors(Object *p_current_object);
@@ -468,7 +470,10 @@ private:
 	void _update_recent_scenes();
 	void _open_recent_scene(int p_idx);
 	void _dropped_files(const Vector<String> &p_files, int p_screen);
+	void _add_dropped_files_recursive(const Vector<String> &p_files, String to_path);
 	String _recent_scene;
+
+	void _exit_editor();
 
 	bool convert_old;
 
@@ -608,6 +613,9 @@ private:
 
 	void _resources_changed(const PoolVector<String> &p_resources);
 
+	void _feature_profile_changed();
+	bool _is_class_editor_disabled_by_feature_profile(const StringName &p_class);
+
 protected:
 	void _notification(int p_what);
 	static void _bind_methods();
@@ -672,7 +680,9 @@ public:
 
 	void push_item(Object *p_object, const String &p_property = "", bool p_inspector_only = false);
 	void edit_item(Object *p_object);
+	void edit_item_resource(RES p_resource);
 	bool item_has_editor(Object *p_object);
+	void hide_top_editors();
 
 	void open_request(const String &p_path);
 
@@ -780,7 +790,8 @@ public:
 	void add_tool_submenu_item(const String &p_name, PopupMenu *p_submenu);
 	void remove_tool_menu_item(const String &p_name);
 
-	void save_all_scenes_and_restart();
+	void save_all_scenes();
+	void restart_editor();
 
 	void dim_editor(bool p_dimming);
 
@@ -834,6 +845,7 @@ public:
 	void forward_spatial_draw_over_viewport(Control *p_overlay);
 	void forward_spatial_force_draw_over_viewport(Control *p_overlay);
 	void add_plugin(EditorPlugin *p_plugin);
+	void remove_plugin(EditorPlugin *p_plugin);
 	void clear();
 	bool empty();
 

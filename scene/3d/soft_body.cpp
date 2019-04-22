@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -102,6 +102,14 @@ SoftBody::PinnedPoint::PinnedPoint(const PinnedPoint &obj_tocopy) {
 	spatial_attachment_path = obj_tocopy.spatial_attachment_path;
 	spatial_attachment = obj_tocopy.spatial_attachment;
 	offset = obj_tocopy.offset;
+}
+
+SoftBody::PinnedPoint SoftBody::PinnedPoint::operator=(const PinnedPoint &obj) {
+	point_index = obj.point_index;
+	spatial_attachment_path = obj.spatial_attachment_path;
+	spatial_attachment = obj.spatial_attachment;
+	offset = obj.offset;
+	return *this;
 }
 
 void SoftBody::_update_pickable() {

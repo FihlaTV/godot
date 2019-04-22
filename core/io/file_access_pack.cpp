@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -272,7 +272,7 @@ int FileAccessPack::get_buffer(uint8_t *p_dst, int p_length) const {
 	if (eof)
 		return 0;
 
-	int64_t to_read = p_length;
+	uint64_t to_read = p_length;
 	if (to_read + pos > pf.size) {
 		eof = true;
 		to_read = int64_t(pf.size) - int64_t(pos);
@@ -488,6 +488,10 @@ Error DirAccessPack::remove(String p_name) {
 size_t DirAccessPack::get_space_left() {
 
 	return 0;
+}
+
+String DirAccessPack::get_filesystem_type() const {
+	return "PCK";
 }
 
 DirAccessPack::DirAccessPack() {

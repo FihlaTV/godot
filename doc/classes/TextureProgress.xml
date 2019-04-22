@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="TextureProgress" inherits="Range" category="Core" version="3.1">
+<class name="TextureProgress" inherits="Range" category="Core" version="3.2">
 	<brief_description>
 		Texture-based progress bar. Useful for loading screens and life or stamina bars.
 	</brief_description>
@@ -8,8 +8,6 @@
 	</description>
 	<tutorials>
 	</tutorials>
-	<demos>
-	</demos>
 	<methods>
 	</methods>
 	<members>
@@ -17,7 +15,7 @@
 			The fill direction. Uses FILL_* constants.
 		</member>
 		<member name="nine_patch_stretch" type="bool" setter="set_nine_patch_stretch" getter="get_nine_patch_stretch">
-			If [code]true[/code] Godot treats the bar's textures like [NinePatchRect]. Use [code]stretch_margin_*[/code], like [member stretch_margin_bottom], to set up the nine patch's 3x3 grid. Default value: [code]false[/code].
+			If [code]true[/code], Godot treats the bar's textures like [NinePatchRect]. Use [code]stretch_margin_*[/code], like [member stretch_margin_bottom], to set up the nine patch's 3x3 grid. Default value: [code]false[/code].
 		</member>
 		<member name="radial_center_offset" type="Vector2" setter="set_radial_center_offset" getter="get_radial_center_offset">
 			Offsets [member texture_progress] if [member fill_mode] is [code]FILL_CLOCKWISE[/code] or [code]FILL_COUNTER_CLOCKWISE[/code].

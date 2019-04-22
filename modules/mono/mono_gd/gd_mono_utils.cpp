@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -39,6 +39,7 @@
 
 #include "../csharp_script.h"
 #include "../utils/macros.h"
+#include "../utils/mutex_utils.h"
 #include "gd_mono.h"
 #include "gd_mono_class.h"
 #include "gd_mono_marshal.h"
@@ -62,6 +63,7 @@ MonoCache mono_cache;
 #define CACHE_FIELD_AND_CHECK(m_class, m_field, m_val) CACHE_AND_CHECK(GDMonoUtils::mono_cache.field_##m_class##_##m_field, m_val)
 #define CACHE_METHOD_AND_CHECK(m_class, m_method, m_val) CACHE_AND_CHECK(GDMonoUtils::mono_cache.method_##m_class##_##m_method, m_val)
 #define CACHE_METHOD_THUNK_AND_CHECK(m_class, m_method, m_val) CACHE_AND_CHECK(GDMonoUtils::mono_cache.methodthunk_##m_class##_##m_method, m_val)
+#define CACHE_PROPERTY_AND_CHECK(m_class, m_property, m_val) CACHE_AND_CHECK(GDMonoUtils::mono_cache.property_##m_class##_##m_property, m_val)
 
 void MonoCache::clear_members() {
 
@@ -79,6 +81,9 @@ void MonoCache::clear_members() {
 	class_double = NULL;
 	class_String = NULL;
 	class_IntPtr = NULL;
+
+	class_System_Collections_IEnumerable = NULL;
+	class_System_Collections_IDictionary = NULL;
 
 #ifdef DEBUG_ENABLED
 	class_System_Diagnostics_StackTrace = NULL;
@@ -142,11 +147,16 @@ void MonoCache::clear_members() {
 	methodthunk_GodotObject_Dispose = NULL;
 	methodthunk_Array_GetPtr = NULL;
 	methodthunk_Dictionary_GetPtr = NULL;
-	methodthunk_MarshalUtils_IsArrayGenericType = NULL;
-	methodthunk_MarshalUtils_IsDictionaryGenericType = NULL;
 	methodthunk_SignalAwaiter_SignalCallback = NULL;
 	methodthunk_SignalAwaiter_FailureCallback = NULL;
 	methodthunk_GodotTaskScheduler_Activate = NULL;
+
+	methodthunk_MarshalUtils_TypeIsGenericArray = NULL;
+	methodthunk_MarshalUtils_TypeIsGenericDictionary = NULL;
+	methodthunk_MarshalUtils_ArrayGetElementType = NULL;
+	methodthunk_MarshalUtils_DictionaryGetKeyValueTypes = NULL;
+	methodthunk_MarshalUtils_EnumerableToArray = NULL;
+	methodthunk_MarshalUtils_IDictionaryToDictionary = NULL;
 
 	task_scheduler_handle = Ref<MonoGCHandle>();
 }
@@ -176,6 +186,9 @@ void update_corlib_cache() {
 	CACHE_CLASS_AND_CHECK(double, GDMono::get_singleton()->get_corlib_assembly()->get_class(mono_get_double_class()));
 	CACHE_CLASS_AND_CHECK(String, GDMono::get_singleton()->get_corlib_assembly()->get_class(mono_get_string_class()));
 	CACHE_CLASS_AND_CHECK(IntPtr, GDMono::get_singleton()->get_corlib_assembly()->get_class(mono_get_intptr_class()));
+
+	CACHE_CLASS_AND_CHECK(System_Collections_IEnumerable, GDMono::get_singleton()->get_corlib_assembly()->get_class("System.Collections", "IEnumerable"));
+	CACHE_CLASS_AND_CHECK(System_Collections_IDictionary, GDMono::get_singleton()->get_corlib_assembly()->get_class("System.Collections", "IDictionary"));
 
 #ifdef DEBUG_ENABLED
 	CACHE_CLASS_AND_CHECK(System_Diagnostics_StackTrace, GDMono::get_singleton()->get_corlib_assembly()->get_class("System.Diagnostics", "StackTrace"));
@@ -241,11 +254,16 @@ void update_godot_api_cache() {
 	CACHE_METHOD_THUNK_AND_CHECK(GodotObject, Dispose, (GodotObject_Dispose)CACHED_CLASS(GodotObject)->get_method_thunk("Dispose", 0));
 	CACHE_METHOD_THUNK_AND_CHECK(Array, GetPtr, (Array_GetPtr)GODOT_API_NS_CLAS(BINDINGS_NAMESPACE_COLLECTIONS, Array)->get_method_thunk("GetPtr", 0));
 	CACHE_METHOD_THUNK_AND_CHECK(Dictionary, GetPtr, (Dictionary_GetPtr)GODOT_API_NS_CLAS(BINDINGS_NAMESPACE_COLLECTIONS, Dictionary)->get_method_thunk("GetPtr", 0));
-	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, IsArrayGenericType, (IsArrayGenericType)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("IsArrayGenericType", 1));
-	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, IsDictionaryGenericType, (IsDictionaryGenericType)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("IsDictionaryGenericType", 1));
 	CACHE_METHOD_THUNK_AND_CHECK(SignalAwaiter, SignalCallback, (SignalAwaiter_SignalCallback)GODOT_API_CLASS(SignalAwaiter)->get_method_thunk("SignalCallback", 1));
 	CACHE_METHOD_THUNK_AND_CHECK(SignalAwaiter, FailureCallback, (SignalAwaiter_FailureCallback)GODOT_API_CLASS(SignalAwaiter)->get_method_thunk("FailureCallback", 0));
 	CACHE_METHOD_THUNK_AND_CHECK(GodotTaskScheduler, Activate, (GodotTaskScheduler_Activate)GODOT_API_CLASS(GodotTaskScheduler)->get_method_thunk("Activate", 0));
+
+	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, TypeIsGenericArray, (TypeIsGenericArray)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("TypeIsGenericArray", 1));
+	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, TypeIsGenericDictionary, (TypeIsGenericDictionary)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("TypeIsGenericDictionary", 1));
+	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, ArrayGetElementType, (ArrayGetElementType)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("ArrayGetElementType", 2));
+	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, DictionaryGetKeyValueTypes, (DictionaryGetKeyValueTypes)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("DictionaryGetKeyValueTypes", 3));
+	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, EnumerableToArray, (EnumerableToArray)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("EnumerableToArray", 2));
+	CACHE_METHOD_THUNK_AND_CHECK(MarshalUtils, IDictionaryToDictionary, (IDictionaryToDictionary)GODOT_API_CLASS(MarshalUtils)->get_method_thunk("IDictionaryToDictionary", 2));
 
 #ifdef DEBUG_ENABLED
 	CACHE_METHOD_THUNK_AND_CHECK(DebuggingUtils, GetStackFrameInfo, (DebugUtils_StackFrameInfo)GODOT_API_CLASS(DebuggingUtils)->get_method_thunk("GetStackFrameInfo", 4));
@@ -265,61 +283,72 @@ void clear_cache() {
 }
 
 MonoObject *unmanaged_get_managed(Object *unmanaged) {
-	if (unmanaged) {
-		if (unmanaged->get_script_instance()) {
-			CSharpInstance *cs_instance = CAST_CSHARP_INSTANCE(unmanaged->get_script_instance());
 
-			if (cs_instance) {
-				return cs_instance->get_mono_object();
-			}
-		}
+	if (!unmanaged)
+		return NULL;
 
-		// If the owner does not have a CSharpInstance...
+	if (unmanaged->get_script_instance()) {
+		CSharpInstance *cs_instance = CAST_CSHARP_INSTANCE(unmanaged->get_script_instance());
 
-		void *data = unmanaged->get_script_instance_binding(CSharpLanguage::get_singleton()->get_language_index());
-
-		if (data) {
-			CSharpScriptBinding &script_binding = ((Map<Object *, CSharpScriptBinding>::Element *)data)->value();
-
-			Ref<MonoGCHandle> &gchandle = script_binding.gchandle;
-			ERR_FAIL_COND_V(gchandle.is_null(), NULL);
-
-			MonoObject *target = gchandle->get_target();
-
-			if (target)
-				return target;
-
-			CSharpLanguage::get_singleton()->release_script_gchandle(gchandle);
-
-			// Create a new one
-
-#ifdef DEBUG_ENABLED
-			CRASH_COND(script_binding.type_name == StringName());
-			CRASH_COND(script_binding.wrapper_class == NULL);
-#endif
-
-			MonoObject *mono_object = GDMonoUtils::create_managed_for_godot_object(script_binding.wrapper_class, script_binding.type_name, unmanaged);
-			ERR_FAIL_NULL_V(mono_object, NULL);
-
-			gchandle->set_handle(MonoGCHandle::new_strong_handle(mono_object), MonoGCHandle::STRONG_HANDLE);
-
-			// Tie managed to unmanaged
-			Reference *ref = Object::cast_to<Reference>(unmanaged);
-
-			if (ref) {
-				// Unsafe refcount increment. The managed instance also counts as a reference.
-				// This way if the unmanaged world has no references to our owner
-				// but the managed instance is alive, the refcount will be 1 instead of 0.
-				// See: godot_icall_Reference_Dtor(MonoObject *p_obj, Object *p_ptr)
-
-				ref->reference();
-			}
-
-			return mono_object;
+		if (cs_instance) {
+			return cs_instance->get_mono_object();
 		}
 	}
 
-	return NULL;
+	// If the owner does not have a CSharpInstance...
+
+	void *data = unmanaged->get_script_instance_binding(CSharpLanguage::get_singleton()->get_language_index());
+
+	ERR_FAIL_NULL_V(data, NULL);
+
+	CSharpScriptBinding &script_binding = ((Map<Object *, CSharpScriptBinding>::Element *)data)->value();
+
+	if (!script_binding.inited) {
+		SCOPED_MUTEX_LOCK(CSharpLanguage::get_singleton()->get_language_bind_mutex());
+
+		if (!script_binding.inited) { // Other thread may have set it up
+			// Already had a binding that needs to be setup
+			CSharpLanguage::get_singleton()->setup_csharp_script_binding(script_binding, unmanaged);
+
+			ERR_FAIL_COND_V(!script_binding.inited, NULL);
+		}
+	}
+
+	Ref<MonoGCHandle> &gchandle = script_binding.gchandle;
+	ERR_FAIL_COND_V(gchandle.is_null(), NULL);
+
+	MonoObject *target = gchandle->get_target();
+
+	if (target)
+		return target;
+
+	CSharpLanguage::get_singleton()->release_script_gchandle(gchandle);
+
+	// Create a new one
+
+#ifdef DEBUG_ENABLED
+	CRASH_COND(script_binding.type_name == StringName());
+	CRASH_COND(script_binding.wrapper_class == NULL);
+#endif
+
+	MonoObject *mono_object = GDMonoUtils::create_managed_for_godot_object(script_binding.wrapper_class, script_binding.type_name, unmanaged);
+	ERR_FAIL_NULL_V(mono_object, NULL);
+
+	gchandle->set_handle(MonoGCHandle::new_strong_handle(mono_object), MonoGCHandle::STRONG_HANDLE);
+
+	// Tie managed to unmanaged
+	Reference *ref = Object::cast_to<Reference>(unmanaged);
+
+	if (ref) {
+		// Unsafe refcount increment. The managed instance also counts as a reference.
+		// This way if the unmanaged world has no references to our owner
+		// but the managed instance is alive, the refcount will be 1 instead of 0.
+		// See: godot_icall_Reference_Dtor(MonoObject *p_obj, Object *p_ptr)
+
+		ref->reference();
+	}
+
+	return mono_object;
 }
 
 void set_main_thread(MonoThread *p_thread) {
@@ -361,6 +390,11 @@ GDMonoClass *type_get_proxy_class(const StringName &p_type) {
 		class_name = class_name.substr(1, class_name.length());
 
 	GDMonoClass *klass = GDMono::get_singleton()->get_core_api_assembly()->get_class(BINDINGS_NAMESPACE, class_name);
+
+	if (klass && klass->is_static()) {
+		// A static class means this is a Godot singleton class. If an instance is needed we use Godot.Object.
+		return mono_cache.class_GodotObject;
+	}
 
 #ifdef TOOLS_ENABLED
 	if (!klass) {
@@ -565,7 +599,7 @@ void debug_send_unhandled_exception_error(MonoException *p_exc) {
 
 		if (unexpected_exc) {
 			GDMonoInternals::unhandled_exception(unexpected_exc);
-			_UNREACHABLE_();
+			GD_UNREACHABLE();
 		}
 
 		Vector<ScriptLanguage::StackInfo> _si;
@@ -598,13 +632,8 @@ void debug_send_unhandled_exception_error(MonoException *p_exc) {
 }
 
 void debug_unhandled_exception(MonoException *p_exc) {
-#ifdef DEBUG_ENABLED
-	GDMonoUtils::debug_send_unhandled_exception_error(p_exc);
-	if (ScriptDebugger::get_singleton())
-		ScriptDebugger::get_singleton()->idle_poll();
-#endif
 	GDMonoInternals::unhandled_exception(p_exc); // prints the exception as well
-	_UNREACHABLE_();
+	GD_UNREACHABLE();
 }
 
 void print_unhandled_exception(MonoException *p_exc) {
@@ -615,7 +644,7 @@ void set_pending_exception(MonoException *p_exc) {
 #ifdef HAS_PENDING_EXCEPTIONS
 	if (get_runtime_invoke_count() == 0) {
 		debug_unhandled_exception(p_exc);
-		_UNREACHABLE_();
+		GD_UNREACHABLE();
 	}
 
 	if (!mono_runtime_set_pending_exception(p_exc, false)) {
@@ -624,7 +653,7 @@ void set_pending_exception(MonoException *p_exc) {
 	}
 #else
 	debug_unhandled_exception(p_exc);
-	_UNREACHABLE_();
+	GD_UNREACHABLE();
 #endif
 }
 
@@ -695,7 +724,7 @@ uint64_t unbox_enum_value(MonoObject *p_boxed, MonoType *p_enum_basetype, bool &
 }
 
 void dispose(MonoObject *p_mono_object, MonoException **r_exc) {
-	invoke_method_thunk(CACHED_METHOD_THUNK(GodotObject, Dispose), p_mono_object, (MonoObject **)r_exc);
+	invoke_method_thunk(CACHED_METHOD_THUNK(GodotObject, Dispose), p_mono_object, r_exc);
 }
 
 } // namespace GDMonoUtils

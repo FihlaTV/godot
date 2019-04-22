@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -93,7 +93,7 @@ Rect2 AnimatedSprite::_get_rect() const {
 
 	Point2 ofs = offset;
 	if (centered)
-		ofs -= s / 2;
+		ofs -= Size2(s) / 2;
 
 	if (s == Size2(0, 0))
 		s = Size2(1, 1);
@@ -276,9 +276,9 @@ void SpriteFrames::_set_animations(const Array &p_animations) {
 		anim.speed = d["speed"];
 		anim.loop = d["loop"];
 		Array frames = d["frames"];
-		for (int i = 0; i < frames.size(); i++) {
+		for (int j = 0; j < frames.size(); j++) {
 
-			RES res = frames[i];
+			RES res = frames[j];
 			anim.frames.push_back(res);
 		}
 
@@ -393,19 +393,30 @@ void AnimatedSprite::_notification(int p_what) {
 					timeout = _get_frame_duration();
 
 					int fc = frames->get_frame_count(animation);
-					if (frame >= fc - 1) {
+					if ((!backwards && frame >= fc - 1) || (backwards && frame <= 0)) {
 						if (frames->get_animation_loop(animation)) {
+							if (backwards)
+								frame = fc - 1;
+							else
+								frame = 0;
+
 							emit_signal(SceneStringNames::get_singleton()->animation_finished);
-							frame = 0;
 						} else {
-							frame = fc - 1;
+							if (backwards)
+								frame = 0;
+							else
+								frame = fc - 1;
+
 							if (!is_over) {
 								is_over = true;
 								emit_signal(SceneStringNames::get_singleton()->animation_finished);
 							}
 						}
 					} else {
-						frame++;
+						if (backwards)
+							frame--;
+						else
+							frame++;
 					}
 
 					update();
@@ -594,10 +605,12 @@ bool AnimatedSprite::_is_playing() const {
 	return playing;
 }
 
-void AnimatedSprite::play(const StringName &p_animation) {
+void AnimatedSprite::play(const StringName &p_animation, const bool p_backwards) {
 
 	if (p_animation)
 		set_animation(p_animation);
+
+	backwards = p_backwards;
 	_set_playing(true);
 }
 
@@ -666,7 +679,7 @@ void AnimatedSprite::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_set_playing", "playing"), &AnimatedSprite::_set_playing);
 	ClassDB::bind_method(D_METHOD("_is_playing"), &AnimatedSprite::_is_playing);
 
-	ClassDB::bind_method(D_METHOD("play", "anim"), &AnimatedSprite::play, DEFVAL(StringName()));
+	ClassDB::bind_method(D_METHOD("play", "anim", "backwards"), &AnimatedSprite::play, DEFVAL(StringName()), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("stop"), &AnimatedSprite::stop);
 	ClassDB::bind_method(D_METHOD("is_playing"), &AnimatedSprite::is_playing);
 
@@ -713,6 +726,7 @@ AnimatedSprite::AnimatedSprite() {
 	frame = 0;
 	speed_scale = 1.0f;
 	playing = false;
+	backwards = false;
 	animation = "default";
 	timeout = 0;
 	is_over = false;

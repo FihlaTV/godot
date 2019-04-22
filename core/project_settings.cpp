@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -42,8 +42,6 @@
 #include "core/variant_parser.h"
 
 #include <zlib.h>
-
-#define FORMAT_VERSION 4
 
 ProjectSettings *ProjectSettings::singleton = NULL;
 
@@ -271,9 +269,9 @@ bool ProjectSettings::_load_resource_pack(const String &p_pack) {
 	return true;
 }
 
-void ProjectSettings::_convert_to_last_version() {
-	if (!has_setting("config_version") || (int)get_setting("config_version") <= 3) {
+void ProjectSettings::_convert_to_last_version(int p_from_version) {
 
+	if (p_from_version <= 3) {
 		// Converts the actions from array to dictionary (array of events to dictionary with deadzone + events)
 		for (Map<StringName, ProjectSettings::VariantContainer>::Element *E = props.front(); E; E = E->next()) {
 			Variant value = E->get().variant;
@@ -396,7 +394,6 @@ Error ProjectSettings::_setup(const String &p_path, const String &p_main_pack, b
 			// Optional, we don't mind if it fails
 			_load_settings_text("res://override.cfg");
 		}
-
 		return err;
 	}
 
@@ -442,10 +439,6 @@ Error ProjectSettings::_setup(const String &p_path, const String &p_main_pack, b
 
 	if (resource_path.length() && resource_path[resource_path.length() - 1] == '/')
 		resource_path = resource_path.substr(0, resource_path.length() - 1); // chop end
-
-	// If we're loading a project.godot from source code, we can operate some
-	// ProjectSettings conversions if need be.
-	_convert_to_last_version();
 
 	return OK;
 }
@@ -508,7 +501,7 @@ Error ProjectSettings::_load_settings_binary(const String p_path) {
 		d.resize(vlen);
 		f->get_buffer(d.ptrw(), vlen);
 		Variant value;
-		Error err = decode_variant(value, d.ptr(), d.size());
+		err = decode_variant(value, d.ptr(), d.size(), NULL, true);
 		ERR_EXPLAIN("Error decoding property: " + key);
 		ERR_CONTINUE(err != OK);
 		set(key, value);
@@ -537,8 +530,8 @@ Error ProjectSettings::_load_settings_text(const String p_path) {
 
 	int lines = 0;
 	String error_text;
-
 	String section;
+	int config_version = 0;
 
 	while (true) {
 
@@ -549,6 +542,9 @@ Error ProjectSettings::_load_settings_text(const String p_path) {
 		err = VariantParser::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, NULL, true);
 		if (err == ERR_FILE_EOF) {
 			memdelete(f);
+			// If we're loading a project.godot from source code, we can operate some
+			// ProjectSettings conversions if need be.
+			_convert_to_last_version(config_version);
 			return OK;
 		} else if (err != OK) {
 			ERR_PRINTS("Error parsing " + p_path + " at line " + itos(lines) + ": " + error_text + " File might be corrupted.");
@@ -558,13 +554,13 @@ Error ProjectSettings::_load_settings_text(const String p_path) {
 
 		if (assign != String()) {
 			if (section == String() && assign == "config_version") {
-				int config_version = value;
-				if (config_version > FORMAT_VERSION) {
+				config_version = value;
+				if (config_version > CONFIG_VERSION) {
 					memdelete(f);
-					ERR_FAIL_COND_V(config_version > FORMAT_VERSION, ERR_FILE_CANT_OPEN);
+					ERR_EXPLAIN(vformat("Can't open project at '%s', its `config_version` (%d) is from a more recent and incompatible version of the engine. Expected config version: %d.", p_path, config_version, CONFIG_VERSION));
+					ERR_FAIL_COND_V(config_version > CONFIG_VERSION, ERR_FILE_CANT_OPEN);
 				}
 			} else {
-				// config_version is checked and dropped
 				if (section == String()) {
 					set(assign, value);
 				} else {
@@ -660,7 +656,7 @@ Error ProjectSettings::_save_settings_binary(const String &p_file, const Map<Str
 		file->store_string(key);
 
 		int len;
-		Error err = encode_variant(p_custom_features, NULL, len);
+		err = encode_variant(p_custom_features, NULL, len, false);
 		if (err != OK) {
 			memdelete(file);
 			ERR_FAIL_V(err);
@@ -669,7 +665,7 @@ Error ProjectSettings::_save_settings_binary(const String &p_file, const Map<Str
 		Vector<uint8_t> buff;
 		buff.resize(len);
 
-		err = encode_variant(p_custom_features, buff.ptrw(), len);
+		err = encode_variant(p_custom_features, buff.ptrw(), len, false);
 		if (err != OK) {
 			memdelete(file);
 			ERR_FAIL_V(err);
@@ -698,7 +694,7 @@ Error ProjectSettings::_save_settings_binary(const String &p_file, const Map<Str
 			file->store_string(key);
 
 			int len;
-			Error err = encode_variant(value, NULL, len);
+			err = encode_variant(value, NULL, len, true);
 			if (err != OK)
 				memdelete(file);
 			ERR_FAIL_COND_V(err != OK, ERR_INVALID_DATA);
@@ -706,7 +702,7 @@ Error ProjectSettings::_save_settings_binary(const String &p_file, const Map<Str
 			Vector<uint8_t> buff;
 			buff.resize(len);
 
-			err = encode_variant(value, buff.ptrw(), len);
+			err = encode_variant(value, buff.ptrw(), len, true);
 			if (err != OK)
 				memdelete(file);
 			ERR_FAIL_COND_V(err != OK, ERR_INVALID_DATA);
@@ -740,7 +736,7 @@ Error ProjectSettings::_save_settings_text(const String &p_file, const Map<Strin
 	file->store_line(";   param=value ; assign values to parameters");
 	file->store_line("");
 
-	file->store_string("config_version=" + itos(FORMAT_VERSION) + "\n");
+	file->store_string("config_version=" + itos(CONFIG_VERSION) + "\n");
 	if (p_custom_features != String())
 		file->store_string("custom_features=\"" + p_custom_features + "\"\n");
 	file->store_string("\n");
@@ -1008,6 +1004,8 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("application/config/use_custom_user_dir", false);
 	GLOBAL_DEF("application/config/custom_user_dir_name", "");
 	GLOBAL_DEF("application/config/project_settings_override", "");
+	GLOBAL_DEF("audio/default_bus_layout", "res://default_bus_layout.tres");
+	custom_prop_info["audio/default_bus_layout"] = PropertyInfo(Variant::STRING, "audio/default_bus_layout", PROPERTY_HINT_FILE, "*.tres");
 
 	action = Dictionary();
 	action["deadzone"] = Variant(0.5f);
@@ -1167,8 +1165,6 @@ ProjectSettings::ProjectSettings() {
 	GLOBAL_DEF("input/ui_end", action);
 	input_presets.push_back("input/ui_end");
 
-	//GLOBAL_DEF("display/window/handheld/orientation", "landscape");
-
 	custom_prop_info["display/window/handheld/orientation"] = PropertyInfo(Variant::STRING, "display/window/handheld/orientation", PROPERTY_HINT_ENUM, "landscape,portrait,reverse_landscape,reverse_portrait,sensor_landscape,sensor_portrait,sensor");
 	custom_prop_info["rendering/threads/thread_model"] = PropertyInfo(Variant::INT, "rendering/threads/thread_model", PROPERTY_HINT_ENUM, "Single-Unsafe,Single-Safe,Multi-Threaded");
 	custom_prop_info["physics/2d/thread_model"] = PropertyInfo(Variant::INT, "physics/2d/thread_model", PROPERTY_HINT_ENUM, "Single-Unsafe,Single-Safe,Multi-Threaded");
@@ -1190,6 +1186,9 @@ ProjectSettings::ProjectSettings() {
 
 	Compression::gzip_level = GLOBAL_DEF("compression/formats/gzip/compression_level", Z_DEFAULT_COMPRESSION);
 	custom_prop_info["compression/formats/gzip/compression_level"] = PropertyInfo(Variant::INT, "compression/formats/gzip/compression_level", PROPERTY_HINT_RANGE, "-1,9,1");
+
+	// Would ideally be defined in an Android-specific file, but then it doesn't appear in the docs
+	GLOBAL_DEF("android/modules", "");
 
 	using_datapack = false;
 }

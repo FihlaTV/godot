@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="ItemList" inherits="Control" category="Core" version="3.1">
+<class name="ItemList" inherits="Control" category="Core" version="3.2">
 	<brief_description>
 		Control that provides a list of selectable items (and/or icons) in a single column, or optionally in multiple columns.
 	</brief_description>
@@ -9,8 +9,6 @@
 	</description>
 	<tutorials>
 	</tutorials>
-	<demos>
-	</demos>
 	<methods>
 		<method name="add_icon_item">
 			<return type="void">
@@ -34,7 +32,7 @@
 			</argument>
 			<description>
 				Adds an item to the item list with specified text. Specify an icon of null for a list item with no icon.
-				If selectable is true the list item will be selectable.
+				If selectable is [code]true[/code] the list item will be selectable.
 			</description>
 		</method>
 		<method name="clear">
@@ -388,10 +386,10 @@
 	</methods>
 	<members>
 		<member name="allow_reselect" type="bool" setter="set_allow_reselect" getter="get_allow_reselect">
-			If [code]true[/code] the currently selected item may be selected again.
+			If [code]true[/code], the currently selected item may be selected again.
 		</member>
 		<member name="allow_rmb_select" type="bool" setter="set_allow_rmb_select" getter="get_allow_rmb_select">
-			If [code]true[/code] a right mouse button click can select items.
+			If [code]true[/code], a right mouse button click can select items.
 		</member>
 		<member name="auto_height" type="bool" setter="set_auto_height" getter="has_auto_height">
 		</member>

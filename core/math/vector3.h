@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -112,6 +112,7 @@ struct Vector3 {
 	_FORCE_INLINE_ Vector3 project(const Vector3 &p_b) const;
 
 	_FORCE_INLINE_ real_t angle_to(const Vector3 &p_b) const;
+	_FORCE_INLINE_ Vector3 direction_to(const Vector3 &p_b) const;
 
 	_FORCE_INLINE_ Vector3 slide(const Vector3 &p_normal) const;
 	_FORCE_INLINE_ Vector3 bounce(const Vector3 &p_normal) const;
@@ -151,7 +152,7 @@ struct Vector3 {
 };
 
 // Should be included after class definition, otherwise we get circular refs
-#include "core/math/matrix3.h"
+#include "core/math/basis.h"
 
 Vector3 Vector3::cross(const Vector3 &p_b) const {
 
@@ -242,6 +243,12 @@ Vector3 Vector3::project(const Vector3 &p_b) const {
 real_t Vector3::angle_to(const Vector3 &p_b) const {
 
 	return Math::atan2(cross(p_b).length(), dot(p_b));
+}
+
+Vector3 Vector3::direction_to(const Vector3 &p_b) const {
+	Vector3 ret(p_b.x - x, p_b.y - y, p_b.z - z);
+	ret.normalize();
+	return ret;
 }
 
 /* Operators */
@@ -414,7 +421,7 @@ Vector3 Vector3::normalized() const {
 
 bool Vector3::is_normalized() const {
 	// use length_squared() instead of length() to avoid sqrt(), makes it more stringent.
-	return Math::is_equal_approx(length_squared(), 1.0);
+	return Math::is_equal_approx(length_squared(), 1.0, UNIT_EPSILON);
 }
 
 Vector3 Vector3::inverse() const {

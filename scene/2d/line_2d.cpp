@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -110,6 +110,14 @@ Vector2 Line2D::get_point_position(int i) const {
 
 int Line2D::get_point_count() const {
 	return _points.size();
+}
+
+void Line2D::clear_points() {
+	int count = _points.size();
+	if (count > 0) {
+		_points.resize(0);
+		update();
+	}
 }
 
 void Line2D::add_point(Vector2 pos) {
@@ -312,6 +320,8 @@ void Line2D::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("add_point", "position"), &Line2D::add_point);
 	ClassDB::bind_method(D_METHOD("remove_point", "i"), &Line2D::remove_point);
+
+	ClassDB::bind_method(D_METHOD("clear_points"), &Line2D::clear_points);
 
 	ClassDB::bind_method(D_METHOD("set_width", "width"), &Line2D::set_width);
 	ClassDB::bind_method(D_METHOD("get_width"), &Line2D::get_width);

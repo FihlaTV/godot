@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -32,6 +32,7 @@
 #define BINDINGS_GENERATOR_H
 
 #include "core/class_db.h"
+#include "core/string_builder.h"
 #include "dotnet_solution.h"
 #include "editor/doc/doc_data.h"
 #include "editor/editor_help.h"
@@ -87,8 +88,13 @@ class BindingsGenerator {
 		StringName cname;
 		bool is_enum;
 
-		TypeReference() {
-			is_enum = false;
+		TypeReference() :
+				is_enum(false) {
+		}
+
+		TypeReference(const StringName &p_cname) :
+				cname(p_cname),
+				is_enum(false) {
 		}
 	};
 
@@ -321,6 +327,15 @@ class BindingsGenerator {
 			return NULL;
 		}
 
+		const PropertyInterface *find_property_by_name(const StringName &p_cname) const {
+			for (const List<PropertyInterface>::Element *E = properties.front(); E; E = E->next()) {
+				if (E->get().cname == p_cname)
+					return &E->get();
+			}
+
+			return NULL;
+		}
+
 		const PropertyInterface *find_property_by_proxy_name(const String &p_proxy_name) const {
 			for (const List<PropertyInterface>::Element *E = properties.front(); E; E = E->next()) {
 				if (E->get().proxy_name == p_proxy_name)
@@ -482,6 +497,8 @@ class BindingsGenerator {
 		StringName type_VarArg;
 		StringName type_Object;
 		StringName type_Reference;
+		StringName type_String;
+		StringName type_at_GlobalScope;
 		StringName enum_Error;
 
 		NameCache() {
@@ -493,6 +510,8 @@ class BindingsGenerator {
 			type_VarArg = StaticCString::create("VarArg");
 			type_Object = StaticCString::create("Object");
 			type_Reference = StaticCString::create("Reference");
+			type_String = StaticCString::create("String");
+			type_at_GlobalScope = StaticCString::create("@GlobalScope");
 			enum_Error = StaticCString::create("Error");
 		}
 
@@ -511,6 +530,15 @@ class BindingsGenerator {
 		return NULL;
 	}
 
+	const ConstantInterface *find_constant_by_name(const String &p_name, const List<ConstantInterface> &p_constants) const {
+		for (const List<ConstantInterface>::Element *E = p_constants.front(); E; E = E->next()) {
+			if (E->get().name == p_name)
+				return &E->get();
+		}
+
+		return NULL;
+	}
+
 	inline String get_unique_sig(const TypeInterface &p_type) {
 		if (p_type.is_reference)
 			return "Ref";
@@ -521,6 +549,8 @@ class BindingsGenerator {
 
 		return p_type.name;
 	}
+
+	String bbcode_to_xml(const String &p_bbcode, const TypeInterface *p_itype);
 
 	int _determine_enum_prefix(const EnumInterface &p_ienum);
 	void _apply_prefix_to_enum_constants(EnumInterface &p_ienum, int p_prefix_length);
@@ -539,14 +569,14 @@ class BindingsGenerator {
 
 	Error _generate_cs_type(const TypeInterface &itype, const String &p_output_file);
 
-	Error _generate_cs_property(const TypeInterface &p_itype, const PropertyInterface &p_iprop, List<String> &p_output);
-	Error _generate_cs_method(const TypeInterface &p_itype, const MethodInterface &p_imethod, int &p_method_bind_count, List<String> &p_output);
+	Error _generate_cs_property(const TypeInterface &p_itype, const PropertyInterface &p_iprop, StringBuilder &p_output);
+	Error _generate_cs_method(const TypeInterface &p_itype, const MethodInterface &p_imethod, int &p_method_bind_count, StringBuilder &p_output);
 
-	void _generate_global_constants(List<String> &p_output);
+	void _generate_global_constants(StringBuilder &p_output);
 
-	Error _generate_glue_method(const TypeInterface &p_itype, const MethodInterface &p_imethod, List<String> &p_output);
+	Error _generate_glue_method(const TypeInterface &p_itype, const MethodInterface &p_imethod, StringBuilder &p_output);
 
-	Error _save_file(const String &p_path, const List<String> &p_content);
+	Error _save_file(const String &p_path, const StringBuilder &p_content);
 
 	BindingsGenerator() {}
 

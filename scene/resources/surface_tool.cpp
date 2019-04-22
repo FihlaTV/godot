@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -108,8 +108,55 @@ void SurfaceTool::add_vertex(const Vector3 &p_vertex) {
 	vtx.bones = last_bones;
 	vtx.tangent = last_tangent.normal;
 	vtx.binormal = last_normal.cross(last_tangent.normal).normalized() * last_tangent.d;
+
+	const int expected_vertices = 4;
+
+	if ((format & Mesh::ARRAY_FORMAT_WEIGHTS || format & Mesh::ARRAY_FORMAT_BONES) && (vtx.weights.size() != expected_vertices || vtx.bones.size() != expected_vertices)) {
+		//ensure vertices are the expected amount
+		ERR_FAIL_COND(vtx.weights.size() != vtx.bones.size());
+		if (vtx.weights.size() < expected_vertices) {
+			//less than requred, fill
+			for (int i = vtx.weights.size(); i < expected_vertices; i++) {
+				vtx.weights.push_back(0);
+				vtx.bones.push_back(0);
+			}
+		} else if (vtx.weights.size() > expected_vertices) {
+			//more than required, sort, cap and normalize.
+			Vector<WeightSort> weights;
+			for (int i = 0; i < vtx.weights.size(); i++) {
+				WeightSort ws;
+				ws.index = vtx.bones[i];
+				ws.weight = vtx.weights[i];
+				weights.push_back(ws);
+			}
+
+			//sort
+			weights.sort();
+			//cap
+			weights.resize(expected_vertices);
+			//renormalize
+			float total = 0;
+			for (int i = 0; i < expected_vertices; i++) {
+				total += weights[i].weight;
+			}
+
+			vtx.weights.resize(expected_vertices);
+			vtx.bones.resize(expected_vertices);
+
+			for (int i = 0; i < expected_vertices; i++) {
+				if (total > 0) {
+					vtx.weights.write[i] = weights[i].weight / total;
+				} else {
+					vtx.weights.write[i] = 0;
+				}
+				vtx.bones.write[i] = weights[i].index;
+			}
+		}
+	}
+
 	vertex_array.push_back(vtx);
 	first = false;
+
 	format |= Mesh::ARRAY_FORMAT_VERTEX;
 }
 void SurfaceTool::add_color(Color p_color) {
@@ -161,7 +208,6 @@ void SurfaceTool::add_uv2(const Vector2 &p_uv2) {
 void SurfaceTool::add_bones(const Vector<int> &p_bones) {
 
 	ERR_FAIL_COND(!begun);
-	ERR_FAIL_COND(p_bones.size() != 4);
 	ERR_FAIL_COND(!first && !(format & Mesh::ARRAY_FORMAT_BONES));
 
 	format |= Mesh::ARRAY_FORMAT_BONES;
@@ -171,8 +217,6 @@ void SurfaceTool::add_bones(const Vector<int> &p_bones) {
 void SurfaceTool::add_weights(const Vector<float> &p_weights) {
 
 	ERR_FAIL_COND(!begun);
-
-	ERR_FAIL_COND(p_weights.size() != 4);
 	ERR_FAIL_COND(!first && !(format & Mesh::ARRAY_FORMAT_WEIGHTS));
 
 	format |= Mesh::ARRAY_FORMAT_WEIGHTS;
@@ -190,10 +234,10 @@ void SurfaceTool::add_smooth_group(bool p_smooth) {
 	}
 }
 
-void SurfaceTool::add_triangle_fan(const Vector<Vector3> &p_vertexes, const Vector<Vector2> &p_uvs, const Vector<Color> &p_colors, const Vector<Vector2> &p_uv2s, const Vector<Vector3> &p_normals, const Vector<Plane> &p_tangents) {
+void SurfaceTool::add_triangle_fan(const Vector<Vector3> &p_vertices, const Vector<Vector2> &p_uvs, const Vector<Color> &p_colors, const Vector<Vector2> &p_uv2s, const Vector<Vector3> &p_normals, const Vector<Plane> &p_tangents) {
 	ERR_FAIL_COND(!begun);
 	ERR_FAIL_COND(primitive != Mesh::PRIMITIVE_TRIANGLES);
-	ERR_FAIL_COND(p_vertexes.size() < 3);
+	ERR_FAIL_COND(p_vertices.size() < 3);
 
 #define ADD_POINT(n)                    \
 	{                                   \
@@ -207,10 +251,10 @@ void SurfaceTool::add_triangle_fan(const Vector<Vector3> &p_vertexes, const Vect
 			add_normal(p_normals[n]);   \
 		if (p_tangents.size() > n)      \
 			add_tangent(p_tangents[n]); \
-		add_vertex(p_vertexes[n]);      \
+		add_vertex(p_vertices[n]);      \
 	}
 
-	for (int i = 0; i < p_vertexes.size() - 2; i++) {
+	for (int i = 0; i < p_vertices.size() - 2; i++) {
 		ADD_POINT(0);
 		ADD_POINT(i + 1);
 		ADD_POINT(i + 2);
@@ -397,7 +441,8 @@ Array SurfaceTool::commit_to_arrays() {
 				a[i] = array;
 			} break;
 
-			default: {}
+			default: {
+			}
 		}
 	}
 
@@ -1012,7 +1057,7 @@ void SurfaceTool::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_weights", "weights"), &SurfaceTool::add_weights);
 	ClassDB::bind_method(D_METHOD("add_smooth_group", "smooth"), &SurfaceTool::add_smooth_group);
 
-	ClassDB::bind_method(D_METHOD("add_triangle_fan", "vertexes", "uvs", "colors", "uv2s", "normals", "tangents"), &SurfaceTool::add_triangle_fan, DEFVAL(Vector<Vector2>()), DEFVAL(Vector<Color>()), DEFVAL(Vector<Vector2>()), DEFVAL(Vector<Vector3>()), DEFVAL(Vector<Plane>()));
+	ClassDB::bind_method(D_METHOD("add_triangle_fan", "vertices", "uvs", "colors", "uv2s", "normals", "tangents"), &SurfaceTool::add_triangle_fan, DEFVAL(Vector<Vector2>()), DEFVAL(Vector<Color>()), DEFVAL(Vector<Vector2>()), DEFVAL(Vector<Vector3>()), DEFVAL(Vector<Plane>()));
 
 	ClassDB::bind_method(D_METHOD("add_index", "index"), &SurfaceTool::add_index);
 
@@ -1020,8 +1065,6 @@ void SurfaceTool::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("deindex"), &SurfaceTool::deindex);
 	ClassDB::bind_method(D_METHOD("generate_normals", "flip"), &SurfaceTool::generate_normals, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("generate_tangents"), &SurfaceTool::generate_tangents);
-
-	ClassDB::bind_method(D_METHOD("add_to_format", "flags"), &SurfaceTool::add_to_format);
 
 	ClassDB::bind_method(D_METHOD("set_material", "material"), &SurfaceTool::set_material);
 

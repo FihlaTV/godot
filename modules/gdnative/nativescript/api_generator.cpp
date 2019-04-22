@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -279,7 +279,7 @@ List<ClassAPI> generate_c_api_classes() {
 				MethodInfo &method_info = m->get();
 
 				//method name
-				method_api.method_name = m->get().name;
+				method_api.method_name = method_info.name;
 				//method return type
 				if (method_api.method_name.find(":") != -1) {
 					method_api.return_type = method_api.method_name.get_slice(":", 1);
@@ -321,6 +321,11 @@ List<ClassAPI> generate_c_api_classes() {
 						arg_type = arg_info.hint_string;
 					} else if (arg_info.type == Variant::NIL) {
 						arg_type = "Variant";
+					} else if (arg_info.type == Variant::OBJECT) {
+						arg_type = arg_info.class_name;
+						if (arg_type == "") {
+							arg_type = Variant::get_type_name(arg_info.type);
+						}
 					} else {
 						arg_type = Variant::get_type_name(arg_info.type);
 					}

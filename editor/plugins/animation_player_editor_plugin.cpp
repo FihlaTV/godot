@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -670,6 +670,7 @@ Dictionary AnimationPlayerEditor::get_state() const {
 	if (EditorNode::get_singleton()->get_edited_scene() && is_visible_in_tree() && player) {
 		d["player"] = EditorNode::get_singleton()->get_edited_scene()->get_path_to(player);
 		d["animation"] = player->get_assigned_animation();
+		d["track_editor_state"] = track_editor->get_state();
 	}
 
 	return d;
@@ -695,6 +696,10 @@ void AnimationPlayerEditor::set_state(const Dictionary &p_state) {
 				_select_anim_by_name(anim);
 				_animation_edit();
 			}
+		}
+
+		if (p_state.has("track_editor_state")) {
+			track_editor->set_state(p_state["track_editor_state"]);
 		}
 	}
 }
@@ -1160,22 +1165,22 @@ void AnimationPlayerEditor::_animation_tool_menu(int p_option) {
 				return;
 			}
 
-			String current = animation->get_item_text(animation->get_selected());
-			Ref<Animation> anim = player->get_animation(current);
-			//editor->edit_resource(anim);
-			EditorSettings::get_singleton()->set_resource_clipboard(anim);
+			String current2 = animation->get_item_text(animation->get_selected());
+			Ref<Animation> anim2 = player->get_animation(current2);
+			//editor->edit_resource(anim2);
+			EditorSettings::get_singleton()->set_resource_clipboard(anim2);
 
 		} break;
 		case TOOL_PASTE_ANIM: {
 
-			Ref<Animation> anim = EditorSettings::get_singleton()->get_resource_clipboard();
-			if (!anim.is_valid()) {
+			Ref<Animation> anim2 = EditorSettings::get_singleton()->get_resource_clipboard();
+			if (!anim2.is_valid()) {
 				error_dialog->set_text(TTR("No animation resource on clipboard!"));
 				error_dialog->popup_centered_minsize();
 				return;
 			}
 
-			String name = anim->get_name();
+			String name = anim2->get_name();
 			if (name == "") {
 				name = TTR("Pasted Animation");
 			}
@@ -1189,7 +1194,7 @@ void AnimationPlayerEditor::_animation_tool_menu(int p_option) {
 			}
 
 			undo_redo->create_action(TTR("Paste Animation"));
-			undo_redo->add_do_method(player, "add_animation", name, anim);
+			undo_redo->add_do_method(player, "add_animation", name, anim2);
 			undo_redo->add_undo_method(player, "remove_animation", name);
 			undo_redo->add_do_method(this, "_animation_player_changed", player);
 			undo_redo->add_undo_method(this, "_animation_player_changed", player);
@@ -1206,9 +1211,9 @@ void AnimationPlayerEditor::_animation_tool_menu(int p_option) {
 				return;
 			}
 
-			String current = animation->get_item_text(animation->get_selected());
-			Ref<Animation> anim = player->get_animation(current);
-			editor->edit_resource(anim);
+			String current2 = animation->get_item_text(animation->get_selected());
+			Ref<Animation> anim2 = player->get_animation(current2);
+			editor->edit_resource(anim2);
 
 		} break;
 	}

@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -38,8 +38,8 @@
 #include "scene/resources/concave_polygon_shape.h"
 #include "thirdparty/misc/mikktspace.h"
 
-class CSGShape : public VisualInstance {
-	GDCLASS(CSGShape, VisualInstance);
+class CSGShape : public GeometryInstance {
+	GDCLASS(CSGShape, GeometryInstance);
 
 public:
 	enum Operation {
@@ -116,6 +116,8 @@ protected:
 
 	virtual void _validate_property(PropertyInfo &property) const;
 
+	Array get_meshes() const;
+
 public:
 	void set_operation(Operation p_operation);
 	Operation get_operation() const;
@@ -185,6 +187,7 @@ class CSGMesh : public CSGPrimitive {
 	virtual CSGBrush *_build_brush();
 
 	Ref<Mesh> mesh;
+	Ref<Material> material;
 
 	void _mesh_changed();
 
@@ -194,6 +197,9 @@ protected:
 public:
 	void set_mesh(const Ref<Mesh> &p_mesh);
 	Ref<Mesh> get_mesh();
+
+	void set_material(const Ref<Material> &p_material);
+	Ref<Material> get_material() const;
 };
 
 class CSGSphere : public CSGPrimitive {

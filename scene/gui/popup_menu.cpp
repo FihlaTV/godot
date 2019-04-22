@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -239,7 +239,7 @@ void PopupMenu::_gui_input(const Ref<InputEvent> &p_event) {
 
 		for (int i = search_from; i >= 0; i--) {
 
-			if (i < 0 || i >= items.size())
+			if (i >= items.size())
 				continue;
 
 			if (!items[i].separator && !items[i].disabled) {
@@ -519,9 +519,9 @@ void PopupMenu::_notification(int p_what) {
 
 				if (items[i].accel || (items[i].shortcut.is_valid() && items[i].shortcut->is_valid())) {
 					//accelerator
-					String text = _get_accel_text(i);
-					item_ofs.x = size.width - style->get_margin(MARGIN_RIGHT) - font->get_string_size(text).width;
-					font->draw(ci, item_ofs + Point2(0, Math::floor((h - font_h) / 2.0)), text, i == mouse_over ? font_color_hover : font_color_accel);
+					String text2 = _get_accel_text(i);
+					item_ofs.x = size.width - style->get_margin(MARGIN_RIGHT) - font->get_string_size(text2).width;
+					font->draw(ci, item_ofs + Point2(0, Math::floor((h - font_h) / 2.0)), text2, i == mouse_over ? font_color_hover : font_color_accel);
 				}
 
 				items.write[i]._ofs_cache = ofs.y;
@@ -594,7 +594,7 @@ void PopupMenu::add_item(const String &p_label, int p_ID, uint32_t p_accel) {
 	item.text = p_label;
 	item.xl_text = tr(p_label);
 	item.accel = p_accel;
-	item.ID = p_ID;
+	item.ID = p_ID == -1 ? items.size() : p_ID;
 	items.push_back(item);
 	update();
 	minimum_size_changed();
@@ -632,7 +632,7 @@ void PopupMenu::add_check_item(const String &p_label, int p_ID, uint32_t p_accel
 	item.text = p_label;
 	item.xl_text = tr(p_label);
 	item.accel = p_accel;
-	item.ID = p_ID;
+	item.ID = p_ID == -1 ? items.size() : p_ID;
 	item.checkable_type = Item::CHECKABLE_TYPE_CHECK_BOX;
 	items.push_back(item);
 	update();

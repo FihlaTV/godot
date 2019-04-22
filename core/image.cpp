@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -735,6 +735,10 @@ static void _overlay(const uint8_t *__restrict p_src, uint8_t *__restrict p_dst,
 	}
 }
 
+bool Image::is_size_po2() const {
+	return uint32_t(width) == next_power_of_2(width) && uint32_t(height) == next_power_of_2(height);
+}
+
 void Image::resize_to_po2(bool p_square) {
 
 	if (!_can_modify(format)) {
@@ -1262,7 +1266,8 @@ void Image::shrink_x2() {
 				case FORMAT_RGBAH: _generate_po2_mipmap<uint16_t, 4, false, Image::average_4_half, Image::renormalize_half>(reinterpret_cast<const uint16_t *>(r.ptr()), reinterpret_cast<uint16_t *>(w.ptr()), width, height); break;
 
 				case FORMAT_RGBE9995: _generate_po2_mipmap<uint32_t, 1, false, Image::average_4_rgbe9995, Image::renormalize_rgbe9995>(reinterpret_cast<const uint32_t *>(r.ptr()), reinterpret_cast<uint32_t *>(w.ptr()), width, height); break;
-				default: {}
+				default: {
+				}
 			}
 		}
 
@@ -1394,7 +1399,8 @@ Error Image::generate_mipmaps(bool p_renormalize) {
 					_generate_po2_mipmap<uint32_t, 1, false, Image::average_4_rgbe9995, Image::renormalize_rgbe9995>(reinterpret_cast<const uint32_t *>(&wp[prev_ofs]), reinterpret_cast<uint32_t *>(&wp[ofs]), prev_w, prev_h);
 
 				break;
-			default: {}
+			default: {
+			}
 		}
 
 		prev_ofs = ofs;
@@ -1608,7 +1614,8 @@ void Image::create(const char **p_xpm) {
 				if (y == (size_height - 1))
 					status = DONE;
 			} break;
-			default: {}
+			default: {
+			}
 		}
 
 		line++;
@@ -1681,7 +1688,8 @@ bool Image::is_invisible() const {
 		case FORMAT_DXT5: {
 			detected = true;
 		} break;
-		default: {}
+		default: {
+		}
 	}
 
 	return !detected;
@@ -1725,7 +1733,8 @@ Image::AlphaMode Image::detect_alpha() const {
 		case FORMAT_DXT5: {
 			detected = true;
 		} break;
-		default: {}
+		default: {
+		}
 	}
 
 	if (detected)
@@ -1789,7 +1798,7 @@ Error Image::decompress() {
 		_image_decompress_pvrtc(this);
 	else if (format == FORMAT_ETC && _image_decompress_etc1)
 		_image_decompress_etc1(this);
-	else if (format >= FORMAT_ETC2_R11 && format <= FORMAT_ETC2_RGB8A1 && _image_decompress_etc1)
+	else if (format >= FORMAT_ETC2_R11 && format <= FORMAT_ETC2_RGB8A1 && _image_decompress_etc2)
 		_image_decompress_etc2(this);
 	else
 		return ERR_UNAVAILABLE;
@@ -1867,7 +1876,7 @@ Image::Image(int p_width, int p_height, bool p_mipmaps, Format p_format, const P
 
 Rect2 Image::get_used_rect() const {
 
-	if (format != FORMAT_LA8 && format != FORMAT_RGBA8)
+	if (format != FORMAT_LA8 && format != FORMAT_RGBA8 && format != FORMAT_RGBAF && format != FORMAT_RGBAH && format != FORMAT_RGBA4444 && format != FORMAT_RGBA5551)
 		return Rect2(Point2(), Size2(width, height));
 
 	int len = data.size();
@@ -1875,17 +1884,13 @@ Rect2 Image::get_used_rect() const {
 	if (len == 0)
 		return Rect2();
 
-	//int data_size = len;
-	PoolVector<uint8_t>::Read r = data.read();
-	const unsigned char *rptr = r.ptr();
-
-	int ps = format == FORMAT_LA8 ? 2 : 4;
+	const_cast<Image *>(this)->lock();
 	int minx = 0xFFFFFF, miny = 0xFFFFFFF;
 	int maxx = -1, maxy = -1;
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 
-			bool opaque = rptr[(j * width + i) * ps + (ps - 1)] > 2;
+			bool opaque = get_pixel(i, j).a > 0.99;
 			if (!opaque)
 				continue;
 			if (i > maxx)
@@ -1898,6 +1903,8 @@ Rect2 Image::get_used_rect() const {
 				miny = j;
 		}
 	}
+
+	const_cast<Image *>(this)->unlock();
 
 	if (maxx == -1)
 		return Rect2();
@@ -2632,6 +2639,9 @@ void Image::_bind_methods() {
 
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "_set_data", "_get_data");
 
+	BIND_CONSTANT(MAX_WIDTH);
+	BIND_CONSTANT(MAX_HEIGHT);
+
 	BIND_ENUM_CONSTANT(FORMAT_L8); //luminance
 	BIND_ENUM_CONSTANT(FORMAT_LA8); //luminance-alpha
 	BIND_ENUM_CONSTANT(FORMAT_R8);
@@ -2898,15 +2908,15 @@ void Image::fix_alpha_edges() {
 					if (dist >= closest_dist)
 						continue;
 
-					const uint8_t *rp = &srcptr[(k * width + l) << 2];
+					const uint8_t *rp2 = &srcptr[(k * width + l) << 2];
 
-					if (rp[3] < alpha_threshold)
+					if (rp2[3] < alpha_threshold)
 						continue;
 
 					closest_dist = dist;
-					closest_color[0] = rp[0];
-					closest_color[1] = rp[1];
-					closest_color[2] = rp[2];
+					closest_color[0] = rp2[0];
+					closest_color[1] = rp2[1];
+					closest_color[2] = rp2[2];
 				}
 			}
 

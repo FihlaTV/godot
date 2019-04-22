@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -65,6 +65,7 @@ struct Vector2 {
 	real_t distance_squared_to(const Vector2 &p_vector2) const;
 	real_t angle_to(const Vector2 &p_vector2) const;
 	real_t angle_to_point(const Vector2 &p_vector2) const;
+	_FORCE_INLINE_ Vector2 direction_to(const Vector2 &p_b) const;
 
 	real_t dot(const Vector2 &p_other) const;
 	real_t cross(const Vector2 &p_other) const;
@@ -98,6 +99,7 @@ struct Vector2 {
 	Vector2 operator/(const real_t &rvalue) const;
 
 	void operator/=(const real_t &rvalue);
+	void operator/=(const Vector2 &rvalue) { *this = *this / rvalue; }
 
 	Vector2 operator-() const;
 
@@ -234,6 +236,12 @@ Vector2 Vector2::slerp(const Vector2 &p_b, real_t p_t) const {
 #endif
 	real_t theta = angle_to(p_b);
 	return rotated(theta * p_t);
+}
+
+Vector2 Vector2::direction_to(const Vector2 &p_b) const {
+	Vector2 ret(p_b.x - x, p_b.y - y);
+	ret.normalize();
+	return ret;
 }
 
 Vector2 Vector2::linear_interpolate(const Vector2 &p_a, const Vector2 &p_b, real_t p_t) {

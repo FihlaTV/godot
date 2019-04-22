@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -90,12 +90,16 @@ void AudioDriver::input_buffer_init(int driver_buffer_frames) {
 
 void AudioDriver::input_buffer_write(int32_t sample) {
 
-	input_buffer.write[input_position++] = sample;
-	if (input_position >= input_buffer.size()) {
-		input_position = 0;
-	}
-	if (input_size < input_buffer.size()) {
-		input_size++;
+	if ((int)input_position < input_buffer.size()) {
+		input_buffer.write[input_position++] = sample;
+		if ((int)input_position >= input_buffer.size()) {
+			input_position = 0;
+		}
+		if ((int)input_size < input_buffer.size()) {
+			input_size++;
+		}
+	} else {
+		WARN_PRINTS("input_buffer_write: Invalid input_position=" + itos(input_position) + " input_buffer.size()=" + itos(input_buffer.size()));
 	}
 }
 
@@ -145,6 +149,8 @@ AudioDriver::AudioDriver() {
 
 	_last_mix_time = 0;
 	_mix_amount = 0;
+	input_position = 0;
+	input_size = 0;
 
 #ifdef DEBUG_ENABLED
 	prof_time = 0;
@@ -253,11 +259,13 @@ void AudioServer::_driver_process(int p_frames, int32_t *p_buffer) {
 
 					float l = CLAMP(buf[from + j].l, -1.0, 1.0);
 					int32_t vl = l * ((1 << 20) - 1);
-					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 0] = vl << 11;
+					int32_t vl2 = (vl < 0 ? -1 : 1) * (ABS(vl) << 11);
+					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 0] = vl2;
 
 					float r = CLAMP(buf[from + j].r, -1.0, 1.0);
 					int32_t vr = r * ((1 << 20) - 1);
-					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 1] = vr << 11;
+					int32_t vr2 = (vr < 0 ? -1 : 1) * (ABS(vr) << 11);
+					p_buffer[(from_buf + j) * (cs * 2) + k * 2 + 1] = vr2;
 				}
 
 			} else {
@@ -868,6 +876,15 @@ int AudioServer::get_bus_effect_count(int p_bus) {
 	return buses[p_bus]->effects.size();
 }
 
+Ref<AudioEffectInstance> AudioServer::get_bus_effect_instance(int p_bus, int p_effect, int p_channel) {
+
+	ERR_FAIL_INDEX_V(p_bus, buses.size(), Ref<AudioEffectInstance>());
+	ERR_FAIL_INDEX_V(p_effect, buses[p_bus]->effects.size(), Ref<AudioEffectInstance>());
+	ERR_FAIL_INDEX_V(p_channel, buses[p_bus]->channels.size(), Ref<AudioEffectInstance>());
+
+	return buses[p_bus]->channels[p_channel].effect_instances[p_effect];
+}
+
 Ref<AudioEffect> AudioServer::get_bus_effect(int p_bus, int p_effect) {
 
 	ERR_FAIL_INDEX_V(p_bus, buses.size(), Ref<AudioEffect>());
@@ -977,7 +994,7 @@ void AudioServer::update() {
 		uint64_t driver_time = AudioDriver::get_singleton()->get_profiling_time();
 		uint64_t server_time = prof_time;
 
-		// Substract the server time from the driver time
+		// Subtract the server time from the driver time
 		if (driver_time > server_time)
 			driver_time -= server_time;
 
@@ -995,7 +1012,7 @@ void AudioServer::update() {
 				values.push_back(String(bus->name) + bus->effects[j].effect->get_name());
 				values.push_back(USEC_TO_SEC(bus->effects[j].prof_time));
 
-				// Substract the effect time from the driver and server times
+				// Subtract the effect time from the driver and server times
 				if (driver_time > bus->effects[j].prof_time)
 					driver_time -= bus->effects[j].prof_time;
 				if (server_time > bus->effects[j].prof_time)
@@ -1037,8 +1054,10 @@ void AudioServer::update() {
 
 void AudioServer::load_default_bus_layout() {
 
-	if (ResourceLoader::exists("res://default_bus_layout.tres")) {
-		Ref<AudioBusLayout> default_layout = ResourceLoader::load("res://default_bus_layout.tres");
+	String layout_path = ProjectSettings::get_singleton()->get("audio/default_bus_layout");
+
+	if (ResourceLoader::exists(layout_path)) {
+		Ref<AudioBusLayout> default_layout = ResourceLoader::load(layout_path);
 		if (default_layout.is_valid()) {
 			set_bus_layout(default_layout);
 		}
@@ -1320,6 +1339,7 @@ void AudioServer::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_bus_effect_count", "bus_idx"), &AudioServer::get_bus_effect_count);
 	ClassDB::bind_method(D_METHOD("get_bus_effect", "bus_idx", "effect_idx"), &AudioServer::get_bus_effect);
+	ClassDB::bind_method(D_METHOD("get_bus_effect_instance", "bus_idx", "effect_idx", "channel"), &AudioServer::get_bus_effect_instance, DEFVAL(0));
 	ClassDB::bind_method(D_METHOD("swap_bus_effects", "bus_idx", "effect_idx", "by_effect_idx"), &AudioServer::swap_bus_effects);
 
 	ClassDB::bind_method(D_METHOD("set_bus_effect_enabled", "bus_idx", "effect_idx", "enabled"), &AudioServer::set_bus_effect_enabled);

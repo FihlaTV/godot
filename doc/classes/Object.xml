@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Object" category="Core" version="3.1">
+<class name="Object" category="Core" version="3.2">
 	<brief_description>
 		Base class for all non built-in types.
 	</brief_description>
 	<description>
 		Base class for all non built-in types. Everything which is not a built-in type starts the inheritance chain from this class.
-		Objects can be constructed from scripting languages, using `Object.new()` in GDScript, `new Object` in C#, or the "Construct Object" node in VisualScript.
+		Objects can be constructed from scripting languages, using [code]Object.new()[/code] in GDScript, [code]new Object[/code] in C#, or the "Construct Object" node in VisualScript.
 		Objects do not manage memory, if inheriting from one the object will most likely have to be deleted manually (call the [method free] function from the script or delete from C++).
 		Some derivatives add memory management, such as [Reference] (which keeps a reference count and deletes itself automatically when no longer referenced) and [Node], which deletes the children tree when deleted.
 		Objects export properties, which are mainly useful for storage and editing, but not really so much in programming. Properties are exported in [method _get_property_list] and handled in [method _get] and [method _set]. However, scripting languages and C++ have simpler means to export them.
@@ -13,8 +13,6 @@
 	</description>
 	<tutorials>
 	</tutorials>
-	<demos>
-	</demos>
 	<methods>
 		<method name="_get" qualifiers="virtual">
 			<return type="Variant">
@@ -346,7 +344,7 @@
 			<argument index="0" name="enable" type="bool">
 			</argument>
 			<description>
-				If set to true, signal emission is blocked.
+				If set to [code]true[/code], signal emission is blocked.
 			</description>
 		</method>
 		<method name="set_deferred">
@@ -375,7 +373,7 @@
 			<argument index="0" name="enable" type="bool">
 			</argument>
 			<description>
-				Define whether the object can translate strings (with calls to [method tr]). Default is true.
+				Define whether the object can translate strings (with calls to [method tr]). Default is [code]true[/code].
 			</description>
 		</method>
 		<method name="set_meta">

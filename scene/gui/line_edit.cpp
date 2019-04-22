@@ -5,8 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                      https://godotengine.org                          */
 /*************************************************************************/
-/* Copyright (c) 2007-2018 Juan Linietsky, Ariel Manzur.                 */
-/* Copyright (c) 2014-2018 Godot Engine contributors (cf. AUTHORS.md)    */
+/* Copyright (c) 2007-2019 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2019 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -29,6 +29,7 @@
 /*************************************************************************/
 
 #include "line_edit.h"
+
 #include "core/message_queue.h"
 #include "core/os/keyboard.h"
 #include "core/os/os.h"
@@ -248,7 +249,9 @@ void LineEdit::_gui_input(Ref<InputEvent> p_event) {
 					set_cursor_position(text.length());
 				} break;
 #endif
-				default: { handled = false; }
+				default: {
+					handled = false;
+				}
 			}
 
 			if (handled) {
@@ -318,7 +321,7 @@ void LineEdit::_gui_input(Ref<InputEvent> p_event) {
 						handled = false;
 						break;
 					}
-					// numlock disabled. fallthrough to key_left
+					FALLTHROUGH;
 				}
 				case KEY_LEFT: {
 
@@ -365,7 +368,7 @@ void LineEdit::_gui_input(Ref<InputEvent> p_event) {
 						handled = false;
 						break;
 					}
-					// numlock disabled. fallthrough to key_right
+					FALLTHROUGH;
 				}
 				case KEY_RIGHT: {
 
@@ -472,7 +475,7 @@ void LineEdit::_gui_input(Ref<InputEvent> p_event) {
 						handled = false;
 						break;
 					}
-					// numlock disabled. fallthrough to key_home
+					FALLTHROUGH;
 				}
 				case KEY_HOME: {
 
@@ -485,7 +488,7 @@ void LineEdit::_gui_input(Ref<InputEvent> p_event) {
 						handled = false;
 						break;
 					}
-					// numlock disabled. fallthrough to key_end
+					FALLTHROUGH;
 				}
 				case KEY_END: {
 
@@ -719,6 +722,8 @@ void LineEdit::_notification(int p_what) {
 				} else {
 					x_ofs = MAX(style->get_margin(MARGIN_LEFT), x_ofs - r_icon->get_width() - style->get_margin(MARGIN_RIGHT));
 				}
+
+				ofs_max -= r_icon->get_width();
 			}
 
 			int caret_height = font->get_height() > y_area ? y_area : font->get_height();
@@ -860,9 +865,11 @@ void LineEdit::_notification(int p_what) {
 		} break;
 		case MainLoop::NOTIFICATION_OS_IME_UPDATE: {
 
-			ime_text = OS::get_singleton()->get_ime_text();
-			ime_selection = OS::get_singleton()->get_ime_selection();
-			update();
+			if (has_focus()) {
+				ime_text = OS::get_singleton()->get_ime_text();
+				ime_selection = OS::get_singleton()->get_ime_selection();
+				update();
+			}
 		} break;
 	}
 }
@@ -913,6 +920,10 @@ void LineEdit::undo() {
 	TextOperation op = undo_stack_pos->get();
 	text = op.text;
 	set_cursor_position(op.cursor_pos);
+
+	if (expand_to_text_length)
+		minimum_size_changed();
+
 	_emit_text_change();
 }
 
@@ -927,6 +938,10 @@ void LineEdit::redo() {
 	TextOperation op = undo_stack_pos->get();
 	text = op.text;
 	set_cursor_position(op.cursor_pos);
+
+	if (expand_to_text_length)
+		minimum_size_changed();
+
 	_emit_text_change();
 }
 
@@ -1150,14 +1165,14 @@ void LineEdit::set_cursor_position(int p_pos) {
 
 	if (cursor_pos <= window_pos) {
 		/* Adjust window if cursor goes too much to the left */
-		if (window_pos > 0)
-			set_window_pos(window_pos - 1);
-
+		set_window_pos(MAX(0, cursor_pos - 1));
 	} else if (cursor_pos > window_pos) {
 		/* Adjust window if cursor goes too much to the right */
 		int window_width = get_size().width - style->get_minimum_size().width;
-		if (right_icon.is_valid()) {
-			window_width -= right_icon->get_width();
+		bool display_clear_icon = !text.empty() && is_editable() && clear_button_enabled;
+		if (right_icon.is_valid() || display_clear_icon) {
+			Ref<Texture> r_icon = display_clear_icon ? Control::get_icon("clear") : right_icon;
+			window_width -= r_icon->get_width();
 		}
 
 		if (window_width < 0)
@@ -1221,6 +1236,7 @@ void LineEdit::append_at_cursor(String p_text) {
 
 void LineEdit::clear_internal() {
 
+	deselect();
 	_clear_undo_stack();
 	cached_width = 0;
 	cursor_pos = 0;
@@ -1286,13 +1302,11 @@ int LineEdit::get_max_length() const {
 
 void LineEdit::selection_fill_at_cursor() {
 
-	int aux;
-
 	selection.begin = cursor_pos;
 	selection.end = selection.cursor_start;
 
 	if (selection.end < selection.begin) {
-		aux = selection.end;
+		int aux = selection.end;
 		selection.end = selection.begin;
 		selection.begin = aux;
 	}

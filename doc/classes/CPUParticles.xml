@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="CPUParticles" inherits="GeometryInstance" category="Core" version="3.1">
+<class name="CPUParticles" inherits="GeometryInstance" category="Core" version="3.2">
 	<brief_description>
 	</brief_description>
 	<description>
 	</description>
 	<tutorials>
 	</tutorials>
-	<demos>
-	</demos>
 	<methods>
 		<method name="convert_from_particles">
 			<return type="void">
@@ -54,6 +52,7 @@
 		<member name="color" type="Color" setter="set_color" getter="get_color">
 		</member>
 		<member name="color_ramp" type="Gradient" setter="set_color_ramp" getter="get_color_ramp">
+			Each particle's vertex color will vary along this [GradientTexture].
 		</member>
 		<member name="damping" type="float" setter="set_param" getter="get_param">
 		</member>
